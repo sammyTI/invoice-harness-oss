@@ -168,6 +168,35 @@ server.tool(
 );
 
 server.tool(
+  "update_client",
+  "取引先を更新（id は list_clients で取得・指定フィールドだけ上書き）。",
+  { id: z.string(), name: z.string().optional(), honorific: z.string().optional(), contact: z.string().optional(), postal_code: z.string().optional(), address: z.string().optional(), email: z.string().optional() },
+  async ({ id, ...body }) => ok(await api(`/api/clients/${id}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "update_item",
+  "品目を更新（id は list_items で取得）。",
+  { id: z.string(), name: z.string().optional(), unit_price: z.number().optional(), tax_rate: z.number().optional(), unit: z.string().optional() },
+  async ({ id, ...body }) => ok(await api(`/api/items/${id}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+server.tool("delete_item", "品目を削除。", { id: z.string() }, async ({ id }) => ok(await api(`/api/items/${id}`, { method: "DELETE" })));
+
+server.tool("delete_division", "計上区分（部門）を削除（帳票は残り割当が外れる）。", { id: z.string() }, async ({ id }) => ok(await api(`/api/divisions/${id}`, { method: "DELETE" })));
+
+server.tool("delete_document", "帳票を削除（下書きのみ。発行済みは cancel_document を使う）。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}`, { method: "DELETE" })));
+
+server.tool(
+  "share_document",
+  "公開共有リンクを発行（取引先がログイン無しで開けるURLを返す）。",
+  { id: z.string() },
+  async ({ id }) => ok(await api(`/api/documents/${id}/share`, { method: "POST", body: "{}" }))
+);
+
+server.tool("unshare_document", "公開共有リンクを失効。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}/share`, { method: "DELETE" })));
+
+server.tool(
   "get_summary",
   "財務サマリー（PL）を取得。会計年度・会社別・部門別の売上/費用/利益/入金。fy=決算年, issuer=会社名 で絞り込み可。",
   { fy: z.number().optional(), issuer: z.string().optional() },
