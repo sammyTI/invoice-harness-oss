@@ -15,7 +15,7 @@
 | データの所有 | **自分のCFアカウント内** | ベンダー預け |
 | カスタマイズ | ソース改変自由（MIT） | 不可 |
 | 複数社運用 | **1インスタンスに複数の発行元** | プラン依存 |
-| AI操作 | **MCP / API で自然言語操作** | 限定的 |
+| AI操作 | **MCP / REST API / 型付きSDK で自然言語＆自動操作** | 限定的 |
 | インボイス対応 | ✅ 登録番号・税率別・端数処理 | ✅ |
 | 電子帳簿保存法 | ✅ 検索要件・改ざん検知・確定ロック | ✅ |
 
@@ -98,6 +98,7 @@ packages/shared     型・税計算・採番・会計年度ロジック（vitest
 packages/db         D1 スキーマ / マイグレーション / seed
 packages/templates  6帳票の印刷用HTMLテンプレ
 packages/mcp-server AI操作用 MCP サーバ
+packages/sdk        型付き SDK（@invoice-harness/sdk・開発者向け）
 ```
 
 - フロント/SSR: SvelteKit（CF Pages）
@@ -159,6 +160,23 @@ pnpm --filter @invoice-harness/worker exec wrangler secret put RESEND_API_KEY
 2. `packages/mcp-server` を Claude 等のMCPクライアントに登録（環境変数 `IH_API_URL`＝自分のpages.dev / `IH_API_TOKEN`＝発行したトークン）
 
 帳票の一覧/検索/作成、発行・取消・訂正・変換、入金記録、財務サマリー取得などを自然言語で操作できます。
+
+### コードから操作（開発者向け SDK）
+
+自分のシステムから自動操作したい場合は型付き SDK を使えます（ゼロ依存・ESM/CJS）。
+
+```bash
+npm i @invoice-harness/sdk
+```
+
+```ts
+import { InvoiceHarness } from "@invoice-harness/sdk";
+const ih = new InvoiceHarness({ baseUrl: "https://your.pages.dev", token: process.env.IH_API_TOKEN! });
+const inv = await ih.documents.create({ type: "invoice", client_name: "○○商事 御中", lines: [{ name: "制作費", unit_price: 300000, tax_rate: 10 }] });
+await ih.documents.issue(inv.id);
+```
+
+詳細は [`packages/sdk/README.md`](packages/sdk/README.md)。
 
 ## 既知の制限
 
