@@ -137,6 +137,66 @@ export async function deleteDivision(db: D1Database, id: string): Promise<void> 
   await db.prepare("DELETE FROM divisions WHERE id = ?1").bind(id).run();
 }
 
+// ---------- 顧客区分（取引先タグ・多対多） ----------
+
+export interface ClientCategory {
+  id: string;
+  name: string;
+}
+
+export async function listClientCategories(db: D1Database): Promise<ClientCategory[]> {
+  const { results } = await db.prepare("SELECT id,name FROM client_categories ORDER BY sort, created_at").all<ClientCategory>();
+  return results ?? [];
+}
+
+export async function createClientCategory(db: D1Database, name: string): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.prepare("INSERT INTO client_categories (id,name,sort) VALUES (?1,?2,?3)").bind(id, name, Date.now() % 100000).run();
+  return id;
+}
+
+export async function deleteClientCategory(db: D1Database, id: string): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM client_category_links WHERE category_id = ?1").bind(id),
+    db.prepare("DELETE FROM client_categories WHERE id = ?1").bind(id),
+  ]);
+}
+
+export async function getClientCategoryIds(db: D1Database, clientId: string): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT category_id FROM client_category_links WHERE client_id = ?1")
+    .bind(clientId)
+    .all<{ category_id: string }>();
+  return (results ?? []).map((r) => r.category_id);
+}
+
+// 取引先に紐づく区分を丸ごと置き換える。
+export async function setClientCategories(db: D1Database, clientId: string, categoryIds: string[]): Promise<void> {
+  const stmts = [
+    db.prepare("DELETE FROM client_category_links WHERE client_id = ?1").bind(clientId),
+  ];
+  for (const cid of [...new Set(categoryIds)].filter(Boolean)) {
+    stmts.push(
+      db.prepare("INSERT OR IGNORE INTO client_category_links (client_id,category_id) VALUES (?1,?2)").bind(clientId, cid)
+    );
+  }
+  await db.batch(stmts);
+}
+
+// 一覧表示用: client_id -> 区分名の配列
+export async function clientCategoryNameMap(db: D1Database): Promise<Record<string, string[]>> {
+  const { results } = await db
+    .prepare(
+      `SELECT l.client_id AS cid, c.name AS name
+       FROM client_category_links l JOIN client_categories c ON c.id = l.category_id
+       ORDER BY c.sort, c.created_at`
+    )
+    .all<{ cid: string; name: string }>();
+  const map: Record<string, string[]> = {};
+  for (const r of results ?? []) (map[r.cid] ??= []).push(r.name);
+  return map;
+}
+
 // ---------- メールテンプレート ----------
 
 export interface EmailTemplate {

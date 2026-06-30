@@ -2,6 +2,15 @@
   import { DOCUMENT_SHORT, formatYen, lifecycle } from "@invoice-harness/shared";
   export let data;
   const pct = (v) => Math.round((v / data.maxMonthly) * 100);
+  // グラフ用の簡易表記（1万以上は「○○万」、未満は3桁区切り）。一目で金額感が掴めるように。
+  const compact = (n) => {
+    const v = Math.round(n || 0);
+    if (Math.abs(v) >= 10000) {
+      const m = v / 10000;
+      return (Math.abs(m) >= 100 ? Math.round(m) : Math.round(m * 10) / 10) + "万";
+    }
+    return v.toLocaleString();
+  };
   $: issQ = data.issuerId ? `&iss=${data.issuerId}` : "";
   $: modeQ = `&mode=${data.calendarMode ? "calendar" : "fiscal"}`;
   // 切替は現在期(fy)を引き継がず、新表示の今期に着地させる
@@ -52,11 +61,12 @@
 <div class="card pl">
   <div class="pl-head">
     <h2>月次推移（{data.fyLabel}）</h2>
-    <div class="legend"><span class="dot rev"></span>売上 <span class="dot exp"></span>費用</div>
+    <div class="legend"><span class="dot rev"></span>売上 <span class="dot exp"></span>費用 <span class="scale">上限 ¥{compact(data.maxMonthly)}</span></div>
   </div>
   <div class="chart">
     {#each data.months as m}
       <div class="mcol" title={`${m.label} 売上 ${formatYen(m.revenue)} / 費用 ${formatYen(m.expense)}`}>
+        <div class="mval" class:zero={!m.revenue}>{m.revenue ? compact(m.revenue) : ""}</div>
         <div class="bars">
           <div class="bar rev" style={`height:${pct(m.revenue)}%`}></div>
           <div class="bar exp" style={`height:${pct(m.expense)}%`}></div>
@@ -139,13 +149,16 @@
   .pl { padding: 18px 20px; margin: 16px 0; }
   .pl-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .pl-head h2 { font-size: 15px; margin: 0; }
-  .legend { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .legend { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .legend .scale { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line); color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .legend .dot.rev { background: var(--primary); }
   .legend .dot.exp { background: var(--amber); margin-left: 8px; }
-  .chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; height: 180px; align-items: end; }
-  .mcol { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
-  .bars { display: flex; align-items: flex-end; gap: 3px; height: 100%; width: 100%; justify-content: center; }
+  .chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; height: 200px; align-items: end; }
+  .mcol { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .mval { font-size: 10px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+  .mval.zero { color: transparent; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; flex: 1; min-height: 0; width: 100%; justify-content: center; }
   .bar { width: 42%; border-radius: 4px 4px 0 0; min-height: 2px; }
   .bar.rev { background: var(--primary); }
   .bar.exp { background: var(--amber); }
@@ -176,5 +189,6 @@
     .mcol { min-width: 0; }
     .bar { width: 60%; }
     .mlabel { font-size: 9px; }
+    .mval { font-size: 8px; }
   }
 </style>

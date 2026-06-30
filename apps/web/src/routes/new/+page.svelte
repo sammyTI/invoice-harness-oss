@@ -21,6 +21,12 @@
   ];
   function addLine() { lines = [...lines, { name: "", qty: 1, unit: "式", price: 0, rate: 10 }]; }
   function removeLine(i) { lines = lines.filter((_, idx) => idx !== i); }
+  // 単価入力を3桁区切りで見やすく。表示はカンマ付きテキスト、送信は hidden の生数値。
+  function onPrice(e, i) {
+    const digits = String(e.target.value).replace(/[^0-9]/g, "");
+    lines[i].price = digits ? parseInt(digits, 10) : 0;
+    lines = lines;
+  }
   function fillFromItem(i) {
     const hit = data.items.find((it) => it.name === lines[i].name);
     if (hit) {
@@ -106,7 +112,10 @@
           <label class="f name"><span class="flab">品目</span><input class="input" name="line_name" list="itemlist" bind:value={line.name} on:change={() => fillFromItem(i)} placeholder="品目名" /></label>
           <label class="f qty"><span class="flab">数量</span><input class="input r" name="line_qty" type="number" step="any" bind:value={line.qty} /></label>
           <label class="f unit"><span class="flab">単位</span><input class="input" name="line_unit" bind:value={line.unit} /></label>
-          <label class="f price"><span class="flab">単価</span><input class="input r" name="line_price" type="number" bind:value={line.price} /></label>
+          <label class="f price"><span class="flab">単価</span>
+            <input class="input r" inputmode="numeric" value={line.price ? line.price.toLocaleString() : ""} on:input={(e) => onPrice(e, i)} placeholder="0" />
+            <input type="hidden" name="line_price" value={line.price} />
+          </label>
           <label class="f rate"><span class="flab">税率</span>
             <select class="input" name="line_rate" bind:value={line.rate}><option value={10}>10%</option><option value={8}>8%</option></select>
           </label>
