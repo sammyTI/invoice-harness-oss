@@ -11,7 +11,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "dev": "pnpm --filter @invoice-harness/web dev",
-    "build": "pnpm -r --filter ./packages/* build && pnpm --filter @invoice-harness/web build",
+    "build": "pnpm --filter @invoice-harness/web build",
     "db:migrate:local": "pnpm --filter @invoice-harness/web db:migrate:local",
     "db:migrate:remote": "pnpm --filter @invoice-harness/web db:migrate:remote",
     "db:seed:local": "pnpm --filter @invoice-harness/web db:seed:local",

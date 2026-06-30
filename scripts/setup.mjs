@@ -32,27 +32,51 @@ function patchToml(file, replacements) {
 console.log(`\n${C.bold}────────────────────────────────`);
 console.log("  invoice-harness セットアップ");
 console.log(`────────────────────────────────${C.reset}`);
-console.log(`${C.dim}Cloudflare 無料枠に、あなた専用の請求書ツールをデプロイします。${C.reset}\n`);
+console.log(`${C.dim}作られる物はすべて ${C.reset}${C.bold}あなたのCloudflareアカウント内${C.reset}${C.dim}・無料枠で動き、いつでも削除できます。`);
+console.log(`下で選んで確認するまで、まだ何も作りません。${C.reset}\n`);
 
-// ---- 対話: プロジェクト名 ----
 const rl = createInterface({ input: process.stdin, output: process.stdout });
-let raw = (await rl.question(`プロジェクト名を入力（同じCFアカウントで複数立てる場合は別名に） ${C.dim}[invoice-harness]${C.reset}: `)).trim();
-let name = (raw || "invoice-harness").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "invoice-harness";
+
+// ---- 対話: モード選択（怖い人はローカルから） ----
+console.log(`どう進めますか？`);
+console.log(`  ${C.bold}1${C.reset}) Cloudflare に公開する（本番として使う・無料）`);
+console.log(`  ${C.bold}2${C.reset}) まずローカルで試す（クラウドには一切上げない）`);
+const mode = (await rl.question(`選択 ${C.dim}[1]${C.reset}: `)).trim() || "1";
+
+if (mode === "2") {
+  rl.close();
+  step("ローカル用データベースを準備します");
+  run("pnpm db:migrate:local");
+  console.log(`\n${C.green}${C.bold}✓ ローカル準備完了！クラウドには何も上げていません。${C.reset}\n`);
+  console.log(`起動するには:`);
+  console.log(`  ${C.bold}pnpm dev${C.reset}   → ブラウザで ${C.bold}http://localhost:5179${C.reset}\n`);
+  console.log(`${C.dim}任意: サンプルデータ投入 = pnpm db:seed:local`);
+  console.log(`本番公開したくなったら、もう一度 pnpm run setup で「1」を選んでください。${C.reset}\n`);
+  process.exit(0);
+}
+
+// ---- 対話: プロジェクト名（既定はランダム。<名前>.pages.dev は世界で唯一なので衝突回避） ----
+const rand = Math.floor(1000 + Math.random() * 9000);
+const defName = `invoice-harness-${rand}`;
+console.log(`\n${C.dim}※ 公開URLは「<プロジェクト名>.pages.dev」で世界共通の唯一名です。`);
+console.log(`   「invoice」等の短い名前は他の人と被って失敗するため、既定はランダム名にしています。${C.reset}`);
+let raw = (await rl.question(`プロジェクト名 ${C.dim}[${defName}]${C.reset}: `)).trim();
+let name = (raw || defName).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || defName;
 
 const pagesProject = name;
 const workerName = `${name}-worker`;
 const r2Bucket = `${name}-assets`;
 const d1Name = name.replace(/-/g, "_");
 
-console.log(`\n以下を作成します:`);
+console.log(`\n以下を ${C.bold}あなたのCFアカウント内${C.reset} に作成します（無料・後で削除可）:`);
 console.log(`  ${C.dim}Pages(画面)${C.reset}   ${pagesProject}  → https://${pagesProject}.pages.dev`);
 console.log(`  ${C.dim}D1(DB)${C.reset}        ${d1Name}`);
 console.log(`  ${C.dim}R2(画像)${C.reset}      ${r2Bucket}`);
 console.log(`  ${C.dim}Worker(催促)${C.reset}  ${workerName}`);
-const yn = (await rl.question(`\nこの内容でデプロイしますか？ ${C.dim}[Y/n]${C.reset}: `)).trim().toLowerCase();
+const yn = (await rl.question(`\nこの内容で公開しますか？ ${C.dim}[Y/n]${C.reset}: `)).trim().toLowerCase();
 rl.close();
 if (yn === "n" || yn === "no") {
-  console.log("中止しました。");
+  console.log("中止しました。何も作成していません。");
   process.exit(0);
 }
 
