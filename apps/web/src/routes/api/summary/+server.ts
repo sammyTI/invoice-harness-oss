@@ -14,13 +14,19 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const issuers = await listIssuers(db);
   const all = (await listDocuments(db)).filter((d) => d.status !== "canceled");
 
-  const today = new Date().toISOString().slice(0, 10);
-  const current = fiscalYearForDate(today, settings.fiscal_month);
-  const endYear = Number(url.searchParams.get("fy")) || current.endYear;
-  const fy = fiscalYearByEndYear(endYear, settings.fiscal_month);
-
   const issParam = url.searchParams.get("issuer") ?? "";
   const issuer = issParam ? issuers.find((i) => i.id === issParam || i.name === issParam) ?? null : null;
+
+  // 決算月: 会社選択時はその会社（未設定は全体設定）、複数社の合算時は暦年(12月)で集計。
+  const calendarMode = !issuer && issuers.length > 1;
+  const effFiscalMonth = calendarMode
+    ? 12
+    : (issuer?.fiscal_month ?? (issuers.length === 1 ? issuers[0]?.fiscal_month : null) ?? settings.fiscal_month);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const current = fiscalYearForDate(today, effFiscalMonth);
+  const endYear = Number(url.searchParams.get("fy")) || current.endYear;
+  const fy = fiscalYearByEndYear(endYear, effFiscalMonth);
 
   const inFy = all.filter(
     (d) => d.issue_date >= fy.start && d.issue_date <= fy.end && (!issuer || d.issuer_id === issuer.id)
@@ -50,7 +56,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const byDivision = [...divMap.entries()].map(([name, v]) => ({ division: name, ...v, profit: v.revenue - v.expense }));
 
   return json({
-    fiscal_year: fy.label,
+    fiscal_year: calendarMode ? `${fy.endYear}年（暦年・全社合算）` : fy.label,
     issuer: issuer?.name ?? "全社合算",
     revenue,
     expense,

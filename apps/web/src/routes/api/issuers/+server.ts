@@ -15,6 +15,7 @@ export const GET: RequestHandler = async ({ platform }) => {
       address: i.address,
       tel: i.tel,
       email: i.email,
+      fiscal_month: i.fiscal_month ?? null,
     })),
   });
 };
@@ -31,11 +32,14 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     tel?: string;
     email?: string;
     bank_info?: string;
+    fiscal_month?: number;
   };
   const name = (b.name ?? "").trim();
   if (!name) return json({ error: "name is required" }, { status: 400 });
+  const fiscalMonth = Number(b.fiscal_month);
   const id = await createIssuer(db, {
     name,
+    fiscal_month: Number.isInteger(fiscalMonth) && fiscalMonth >= 1 && fiscalMonth <= 12 ? fiscalMonth : null,
     registration_number: b.registration_number?.trim() || null,
     person_name: b.person_name?.trim() || null,
     postal_code: b.postal_code?.trim() || null,

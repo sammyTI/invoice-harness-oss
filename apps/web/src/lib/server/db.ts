@@ -615,14 +615,15 @@ export interface IssuerInput {
   tel: string | null;
   email: string | null;
   bank_info: string | null;
+  fiscal_month?: number | null;
 }
 
 export async function updateIssuer(db: D1Database, id: string, f: IssuerInput): Promise<void> {
   await db
     .prepare(
-      `UPDATE issuers SET name=?2, registration_number=?3, postal_code=?4, address=?5, tel=?6, email=?7, bank_info=?8, person_name=?9 WHERE id=?1`
+      `UPDATE issuers SET name=?2, registration_number=?3, postal_code=?4, address=?5, tel=?6, email=?7, bank_info=?8, person_name=?9, fiscal_month=?10 WHERE id=?1`
     )
-    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name)
+    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null)
     .run();
 }
 
@@ -630,10 +631,10 @@ export async function createIssuer(db: D1Database, f: IssuerInput): Promise<stri
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO issuers (id,name,registration_number,postal_code,address,tel,email,bank_info,person_name)
-       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)`
+      `INSERT INTO issuers (id,name,registration_number,postal_code,address,tel,email,bank_info,person_name,fiscal_month)
+       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
     )
-    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name)
+    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null)
     .run();
   return id;
 }

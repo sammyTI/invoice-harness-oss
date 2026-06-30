@@ -57,6 +57,8 @@ export interface IssuerInput {
   tel?: string;
   email?: string;
   bank_info?: string;
+  /** 会社ごとの決算月(1-12)。未指定は全体設定に従う。 */
+  fiscal_month?: number;
 }
 
 export interface ClientInput {

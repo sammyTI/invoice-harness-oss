@@ -12,6 +12,10 @@ function parse(fd: FormData): IssuerInput {
     tel: String(fd.get("tel") ?? "").trim() || null,
     email: String(fd.get("email") ?? "").trim() || null,
     bank_info: String(fd.get("bank_info") ?? "").trim() || null,
+    fiscal_month: ((): number | null => {
+      const v = Number(fd.get("fiscal_month"));
+      return Number.isInteger(v) && v >= 1 && v <= 12 ? v : null;
+    })(),
   };
 }
 

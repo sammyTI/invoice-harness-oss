@@ -19,6 +19,15 @@
       <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" value={iss.postal_code ?? ""} /></div>
       <div class="field"><span class="lab">TEL</span><input class="input" name="tel" value={iss.tel ?? ""} /></div>
       <div class="field"><span class="lab">メール</span><input class="input" name="email" value={iss.email ?? ""} /></div>
+      <div class="field"><span class="lab">決算月</span>
+        <select class="input" name="fiscal_month">
+          <option value="" selected={!iss.fiscal_month}>（全体設定に従う）</option>
+          {#each Array(12) as _, i}
+            <option value={i + 1} selected={iss.fiscal_month === i + 1}>{i + 1}月</option>
+          {/each}
+        </select>
+        <span class="sub">この会社の年度区切り。複数社あるとトップは暦年で集計し、会社を選ぶとその会社の年度で表示します。</span>
+      </div>
     </div>
     <div class="field"><span class="lab">住所</span><textarea class="input" name="address" rows="2" placeholder="〒100-0001 東京都千代田区千代田1-1-1&#10;サンプルビル10F">{iss.address ?? ""}</textarea><span class="sub">長い住所は改行できます（市区町村・建物名で改行など）。</span></div>
     <div class="field"><span class="lab">振込先</span><textarea class="input" name="bank_info" rows="2" placeholder="みずほ銀行 ○○支店 普通 1234567&#10;カ）○○">{iss.bank_info ?? ""}</textarea><span class="sub">複数行で入力できます。</span></div>
@@ -36,6 +45,14 @@
       <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" /></div>
       <div class="field"><span class="lab">TEL</span><input class="input" name="tel" /></div>
       <div class="field"><span class="lab">メール</span><input class="input" name="email" /></div>
+      <div class="field"><span class="lab">決算月</span>
+        <select class="input" name="fiscal_month">
+          <option value="" selected>（全体設定に従う）</option>
+          {#each Array(12) as _, i}
+            <option value={i + 1}>{i + 1}月</option>
+          {/each}
+        </select>
+      </div>
     </div>
     <div class="field"><span class="lab">住所</span><textarea class="input" name="address" rows="2" placeholder="〒100-0001 東京都千代田区千代田1-1-1&#10;サンプルビル10F"></textarea></div>
     <div class="field"><span class="lab">振込先</span><textarea class="input" name="bank_info" rows="2"></textarea></div>

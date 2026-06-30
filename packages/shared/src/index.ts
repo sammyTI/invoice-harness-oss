@@ -88,6 +88,7 @@ export interface Issuer {
   bank_info: string | null;
   logo_key: string | null;
   seal_key: string | null;
+  fiscal_month?: number | null; // 会社ごとの決算月(1-12)。NULLは全体設定にフォールバック。
 }
 
 export interface Client {

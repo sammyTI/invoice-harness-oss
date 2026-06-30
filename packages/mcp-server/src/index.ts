@@ -75,6 +75,7 @@ server.tool(
     tel: z.string().optional(),
     email: z.string().optional(),
     bank_info: z.string().optional().describe("振込先（銀行・支店・種別・口座番号・名義）"),
+    fiscal_month: z.number().optional().describe("決算月 1-12。複数社で会社ごとに異なる場合に指定。未指定は全体設定に従う"),
   },
   async (body) => ok(await api(`/api/issuers`, { method: "POST", body: JSON.stringify(body) }))
 );
@@ -92,6 +93,7 @@ server.tool(
     tel: z.string().optional(),
     email: z.string().optional(),
     bank_info: z.string().optional(),
+    fiscal_month: z.number().optional().describe("決算月 1-12。未指定は変更しない"),
   },
   async ({ id, ...body }) => ok(await api(`/api/issuers/${id}`, { method: "PUT", body: JSON.stringify(body) }))
 );
