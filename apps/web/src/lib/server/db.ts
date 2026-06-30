@@ -657,6 +657,18 @@ export async function getClient(db: D1Database, id: string): Promise<Client | nu
   return (await db.prepare("SELECT * FROM clients WHERE id = ?1").bind(id).first<Client>()) ?? null;
 }
 
+export async function createClient(
+  db: D1Database,
+  f: { name: string; honorific?: string; contact?: string | null; postal_code?: string | null; address?: string | null; email?: string | null }
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await db
+    .prepare("INSERT INTO clients (id,name,honorific,contact,postal_code,address,email) VALUES (?1,?2,?3,?4,?5,?6,?7)")
+    .bind(id, f.name, f.honorific || "御中", f.contact ?? null, f.postal_code ?? null, f.address ?? null, f.email ?? null)
+    .run();
+  return id;
+}
+
 export interface ClientInput {
   name: string;
   honorific: string;

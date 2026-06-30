@@ -111,6 +111,63 @@ server.tool(
 );
 
 server.tool(
+  "get_settings",
+  "課税・表示・決算月などの設定を取得。",
+  {},
+  async () => ok(await api(`/api/settings`))
+);
+
+server.tool(
+  "update_settings",
+  "設定を更新（指定したフィールドだけ上書き）。初期設定をAIで行える。",
+  {
+    fiscal_month: z.number().optional().describe("決算月 1-12"),
+    tax_display: z.enum(["exclusive", "inclusive"]).optional().describe("外税/内税"),
+    withholding: z.enum(["none", "standard"]).optional().describe("源泉徴収 なし/あり(10.21%)"),
+    withholding_basis: z.enum(["exclusive", "inclusive"]).optional().describe("源泉の計算基礎 税抜/税込"),
+    tax_rounding: z.enum(["floor", "ceil", "round"]).optional().describe("消費税の端数"),
+    amount_rounding: z.enum(["floor", "ceil", "round"]).optional().describe("金額の端数"),
+    date_format: z.enum(["iso", "jp"]).optional().describe("日付表記 2026-01-01 / 2026年1月1日"),
+    invoice_show_transaction_date: z.boolean().optional(),
+    accent_color: z.string().optional().describe("帳票アクセント色 #RRGGBB"),
+  },
+  async (body) => ok(await api(`/api/settings`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "create_client",
+  "取引先を新規登録。会社名は必須。",
+  {
+    name: z.string(),
+    honorific: z.string().optional().describe("敬称（既定 御中）"),
+    contact: z.string().optional(),
+    postal_code: z.string().optional(),
+    address: z.string().optional(),
+    email: z.string().optional(),
+  },
+  async (body) => ok(await api(`/api/clients`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "create_item",
+  "品目マスタを新規登録。",
+  {
+    name: z.string(),
+    unit_price: z.number().optional(),
+    tax_rate: z.number().optional().describe("税率（既定10）"),
+    unit: z.string().optional().describe("単位（既定 式）"),
+  },
+  async (body) => ok(await api(`/api/items`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "create_division",
+  "計上区分（部門）を新規登録。issuer_name 省略時は全社共通。",
+  { name: z.string(), issuer_name: z.string().optional().describe("会社名（その会社専用にする場合）") },
+  async (body) => ok(await api(`/api/divisions`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
   "get_summary",
   "財務サマリー（PL）を取得。会計年度・会社別・部門別の売上/費用/利益/入金。fy=決算年, issuer=会社名 で絞り込み可。",
   { fy: z.number().optional(), issuer: z.string().optional() },
