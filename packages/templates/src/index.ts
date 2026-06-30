@@ -66,24 +66,30 @@ const STYLES = `
   .toolbar button{background:#444;color:#fff;border:1px solid #666;padding:6px 16px;border-radius:5px;cursor:pointer;}
   .title{text-align:center;font-size:28px;font-weight:700;letter-spacing:.4em;margin:0 0 22px;padding-left:.4em;}
   .title-underline{border-bottom:2.5px solid var(--accent);width:220px;margin:-16px auto 24px;}
-  .top{display:flex;justify-content:space-between;gap:24px;margin-bottom:18px;align-items:flex-start;}
-  .client{flex:1 1 auto;min-width:0;}
+  .top{display:flex;justify-content:space-between;gap:18px;margin-bottom:18px;align-items:flex-start;}
+  /* 左列：請求先＋（下記の通り〜/件名/御請求金額）。請求先の下の余白を活用する。 */
+  .client-col{flex:1 1 auto;min-width:0;}
   .client .cname{font-size:18px;font-weight:700;border-bottom:1.5px solid #222;padding-bottom:5px;display:inline-block;max-width:100%;}
   .client .caddr{font-size:11px;color:#555;margin-top:6px;line-height:1.7;overflow-wrap:break-word;}
-  /* 右列（番号・発行元）は固定幅にして、長い住所が宛名側を圧迫しないようにする */
-  .meta-col{flex:0 0 62mm;max-width:62mm;}
+  /* 右列（番号・発行元）は固定幅。長い建物名（例：サンシャインシティワールドインポートマートビル5階）が1行に収まる幅＋やや小さめの文字。 */
+  .meta-col{flex:0 0 70mm;max-width:70mm;}
   .docmeta{font-size:11px;color:#555;text-align:right;line-height:1.9;}
   .docmeta b{color:#222;}
-  .issuer{margin-top:10px;font-size:11px;color:#444;text-align:right;line-height:1.75;overflow-wrap:break-word;word-break:break-word;}
+  .issuer{position:relative;margin-top:10px;font-size:10.5px;color:#444;text-align:right;line-height:1.7;overflow-wrap:break-word;}
   .issuer .iname{font-size:14px;font-weight:700;color:#222;}
+  .issuer .iaddr{margin-top:2px;}
+  .issuer .icontact{margin-top:1px;}
   .issuer .reg{font-weight:600;}
   .issuer .warn{color:#c0392b;}
-  .amount-box{border:2px solid var(--accent);margin:8px 0 20px;display:flex;}
+  /* 社印は住所・会社情報に重ねて押印（被せる）。 */
+  .seal-img{position:absolute;right:2mm;bottom:0;margin:0;pointer-events:none;}
+  .seal-img img{width:21mm;height:21mm;object-fit:contain;mix-blend-mode:multiply;}
+  .amount-box{border:2px solid var(--accent);margin:14px 0 0;display:flex;}
   .amount-box .lab{background:var(--accent);color:var(--accent-ink);padding:12px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;white-space:nowrap;}
   .amount-box .val{flex:1;padding:12px 18px;font-size:22px;font-weight:700;text-align:right;}
-  .subject{font-size:12px;margin-bottom:12px;}
+  .subject{font-size:12px;margin:10px 0 0;}
   .subject b{font-weight:700;}
-  .intro{font-size:12px;margin:0 0 12px;color:#333;}
+  .intro{font-size:12px;margin:12px 0 0;color:#333;}
   /* 領収書（横向き） */
   .rc-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:34px;align-items:start;margin-top:14px;}
   .rc-amount{border:2.5px solid var(--accent);border-radius:6px;text-align:center;padding:20px 16px;margin:6px 0 18px;}
@@ -110,8 +116,6 @@ const STYLES = `
   table.sum td.r{text-align:right;white-space:nowrap;}
   table.sum tr.grand td{background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px;}
   table.sum tr.wh td{color:#c0392b;}
-  .seal-img{margin-top:8px;}
-  .seal-img img{width:56px;height:56px;object-fit:contain;}
   .logo-img{margin-bottom:6px;}
   .logo-img img{max-width:160px;max-height:46px;object-fit:contain;}
 `;
@@ -320,11 +324,19 @@ export function renderDocument(input: RenderInput): string {
   <div class="title-underline"></div>
 
   <div class="top">
-    <div class="client">
-      <div class="cname">${esc(client.name)} ${esc(client.honorific)}</div>
-      <div class="caddr">
-        ${client.contact ? `${esc(client.contact)}<br>` : ""}
-        ${client.address ? `〒${esc(client.postal_code)}　${esc(client.address)}` : ""}
+    <div class="client-col">
+      <div class="client">
+        <div class="cname">${esc(client.name)} ${esc(client.honorific)}</div>
+        <div class="caddr">
+          ${client.contact ? `${esc(client.contact)}<br>` : ""}
+          ${client.address ? `〒${esc(client.postal_code)}　${esc(client.address)}` : ""}
+        </div>
+      </div>
+      ${intro ? `<p class="intro">${esc(intro)}</p>` : ""}
+      ${doc.subject ? `<div class="subject"><b>件名：</b>${esc(doc.subject)}</div>` : ""}
+      <div class="amount-box">
+        <div class="lab">${amountLabel}</div>
+        <div class="val">${formatYen(grandValue)}<span style="font-size:11px;font-weight:400;color:#666;">${grandSuffix}</span></div>
       </div>
     </div>
     <div class="meta-col">
@@ -339,19 +351,11 @@ export function renderDocument(input: RenderInput): string {
         <div class="iname">${esc(issuer.name)}</div>
         ${(doc.issuer_person || issuer.person_name) ? `<div>担当：${esc((doc.issuer_person || issuer.person_name) as string)}</div>` : ""}
         ${regLine}
-        ${issuer.address ? `〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}<br>` : ""}
-        ${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? `${esc(issuer.email)}` : ""}
+        ${issuer.address ? `<div class="iaddr">〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}</div>` : ""}
+        <div class="icontact">${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? `${esc(issuer.email)}` : ""}</div>
         ${issuer.seal_key ? `<div class="seal-img"><img src="${esc(issuer.seal_key)}" alt="社印"></div>` : ""}
       </div>
     </div>
-  </div>
-
-  ${intro ? `<p class="intro">${esc(intro)}</p>` : ""}
-  ${doc.subject ? `<div class="subject"><b>件名：</b>${esc(doc.subject)}</div>` : ""}
-
-  <div class="amount-box">
-    <div class="lab">${amountLabel}</div>
-    <div class="val">${formatYen(grandValue)}<span style="font-size:11px;font-weight:400;color:#666;">${grandSuffix}</span></div>
   </div>
 
   <table class="items">
