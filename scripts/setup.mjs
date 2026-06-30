@@ -209,12 +209,9 @@ try {
   const mcpPath = resolve(root, "packages/mcp-server/dist/index.js");
   mcpBlock =
     `${C.bold}AI（Claude）から自然言語で操作する（MCP）${C.reset}\n` +
-    `  Claude Code をお使いなら、次のコマンドを実行（URL・トークンは設定済み）:\n\n` +
-    `  ${C.cyan}claude mcp add invoice-harness \\\n` +
-    `    --env IH_API_URL=${url} \\\n` +
-    `    --env IH_API_TOKEN=${apiToken} \\\n` +
-    `    -- node ${mcpPath}${C.reset}\n\n` +
-    `  ${C.dim}（このトークンは アプリの 設定 ▸ API/AI連携 でいつでも失効できます）${C.reset}`;
+    `  Claude Code をお使いなら、次の1行をそのまま実行（URL・トークン設定済み）:\n\n` +
+    `  ${C.cyan}claude mcp add invoice-harness --env IH_API_URL=${url} --env IH_API_TOKEN=${apiToken} -- node ${mcpPath}${C.reset}\n\n` +
+    `  ${C.dim}登録後は「○○社に請求書を作って」等で操作できます。トークンは 設定 ▸ API/AI連携 で失効可。${C.reset}`;
   ok("MCPトークンを発行しました（上記コマンドで登録）");
 } catch {
   warn("MCPの自動準備をスキップ（後で 設定 ▸ API/AI連携 でトークン発行→README参照）");

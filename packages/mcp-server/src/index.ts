@@ -64,6 +64,39 @@ server.tool(
 );
 
 server.tool(
+  "create_issuer",
+  "発行元（自社）を新規登録。会社名は必須。登録番号(T+13桁)・代表者名・住所・振込先などは任意。複数社運用ではこれで会社を追加する。",
+  {
+    name: z.string().describe("会社名（必須）"),
+    registration_number: z.string().optional().describe("適格請求書発行事業者 登録番号 T+13桁"),
+    person_name: z.string().optional().describe("代表者名・担当者名"),
+    postal_code: z.string().optional(),
+    address: z.string().optional(),
+    tel: z.string().optional(),
+    email: z.string().optional(),
+    bank_info: z.string().optional().describe("振込先（銀行・支店・種別・口座番号・名義）"),
+  },
+  async (body) => ok(await api(`/api/issuers`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "update_issuer",
+  "発行元（自社）情報を更新。id は list_issuers で取得。指定したフィールドだけ上書きする。",
+  {
+    id: z.string(),
+    name: z.string().optional(),
+    registration_number: z.string().optional(),
+    person_name: z.string().optional(),
+    postal_code: z.string().optional(),
+    address: z.string().optional(),
+    tel: z.string().optional(),
+    email: z.string().optional(),
+    bank_info: z.string().optional(),
+  },
+  async ({ id, ...body }) => ok(await api(`/api/issuers/${id}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+server.tool(
   "list_divisions",
   "計上区分（部門・事業部）の一覧を取得。会社名付き。",
   {},

@@ -626,14 +626,16 @@ export async function updateIssuer(db: D1Database, id: string, f: IssuerInput): 
     .run();
 }
 
-export async function createIssuer(db: D1Database, f: IssuerInput): Promise<void> {
+export async function createIssuer(db: D1Database, f: IssuerInput): Promise<string> {
+  const id = crypto.randomUUID();
   await db
     .prepare(
       `INSERT INTO issuers (id,name,registration_number,postal_code,address,tel,email,bank_info,person_name)
        VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)`
     )
-    .bind(crypto.randomUUID(), f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name)
+    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name)
     .run();
+  return id;
 }
 
 export async function setIssuerAsset(
