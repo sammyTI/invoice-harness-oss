@@ -23,18 +23,26 @@
 
 ## クイックスタート
 
-前提: **Node.js 22+ / pnpm / Cloudflare アカウント（無料枠でOK）**
+前提: **Node.js 22+ / pnpm / git / Cloudflare アカウント（無料枠でOK）**
+
+### コマンド一発（推奨）
+
+```bash
+npx create-invoice-harness
+```
+
+取得 → インストール → Cloudflare ログイン → D1/R2作成 → マイグレ → デプロイまで自動で進みます。
+
+### あるいは clone して実行
 
 ```bash
 git clone https://github.com/sammyTI/invoice-harness-oss.git
 cd invoice-harness-oss
 pnpm install
-
-# 一発セットアップ（CFログイン → D1作成 → R2作成 → マイグレ → デプロイ）
 pnpm setup
 ```
 
-`pnpm setup` が完了すると公開URL（`https://invoice-harness.pages.dev` など）が表示されます。
+完了すると公開URL（`https://invoice-harness.pages.dev` など）が表示されます。
 
 1. その URL を開く
 2. **`/setup`** でオーナー（管理者）アカウントを作成

@@ -1,0 +1,23 @@
+{
+  "name": "create-invoice-harness",
+  "version": "0.1.0",
+  "description": "Scaffold & deploy invoice-harness (Cloudflare-hosted invoicing OSS / Misoca alternative) with one command.",
+  "type": "module",
+  "bin": {
+    "create-invoice-harness": "index.mjs"
+  },
+  "files": [
+    "index.mjs"
+  ],
+  "keywords": ["invoice", "billing", "cloudflare", "self-hosted", "misoca", "インボイス", "請求書"],
+  "homepage": "https://github.com/sammyTI/invoice-harness-oss",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sammyTI/invoice-harness-oss.git",
+    "directory": "packages/create-invoice-harness"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}
