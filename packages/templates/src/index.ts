@@ -51,7 +51,7 @@ const STYLES = `
   *{box-sizing:border-box;}
   body{font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;color:#222;background:#e9eaec;margin:0;line-height:1.6;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .page{width:210mm;min-height:297mm;margin:20px auto;padding:12mm 16mm 16mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.1);position:relative;}
-  .page.landscape{width:297mm;min-height:210mm;padding:12mm 18mm 16mm;}
+  .page.landscape{width:297mm;min-height:auto;padding:12mm 18mm 14mm;}
   @media print{
     body{background:#fff;}
     .page{box-shadow:none;margin:0;}
@@ -97,7 +97,8 @@ const STYLES = `
   .rc-but{font-size:13px;margin:14px 0;border-bottom:1px solid #ccc;padding-bottom:10px;}
   .rc-ack{font-size:13px;margin:14px 0 18px;}
   .rc-side{display:flex;flex-direction:column;align-items:flex-end;gap:16px;}
-  .rc-stamp{width:96px;height:96px;border:1px solid #bbb;border-radius:4px;display:grid;place-items:center;color:#bbb;font-size:11px;text-align:center;}
+  /* 収入印紙（5万円以上で必要なときのみ）。グレーの押印枠は廃止し、控えめな枠で表示。 */
+  .rc-stamp-note{width:74px;border:1px dashed #b08;color:#a06;font-size:10px;text-align:center;padding:7px 6px;line-height:1.45;margin-bottom:12px;}
   table.items{width:100%;border-collapse:collapse;font-size:11.5px;}
   table.items th{background:#f0f0f0;border:1px solid #bbb;border-bottom:2px solid var(--accent);padding:7px 8px;font-weight:700;}
   table.items td{border:1px solid #ccc;padding:7px 8px;vertical-align:top;}
@@ -168,11 +169,15 @@ function renderReceipt(input: RenderInput): string {
     .map((t) => `${t.rate}%対象 ${formatYen(t.net)}（税 ${formatYen(t.tax)}）`)
     .join("　");
   const stamp = stampDuty(totals.subtotal);
-  const stampInner = issuer.seal_key
-    ? `<img src="${esc(issuer.seal_key)}" alt="社印" style="width:100%;height:100%;object-fit:contain">`
-    : stamp > 0
-      ? `収入印紙<br>¥${stamp.toLocaleString("ja-JP")}<br><span style="font-size:8px">紙発行時</span>`
-      : "印紙不要";
+  // 社印は発行元の住所・会社情報に重ねて押印（グレーの押印枠は廃止）。
+  const sealOverlay = issuer.seal_key
+    ? `<div class="seal-img"><img src="${esc(issuer.seal_key)}" alt="社印"></div>`
+    : "";
+  // 収入印紙は課税額（5万円以上）で必要なときのみ、控えめに表示。
+  const stampNote =
+    stamp > 0
+      ? `<div class="rc-stamp-note">収入印紙<br>¥${stamp.toLocaleString("ja-JP")}<br><span style="font-size:8px">紙発行時に貼付</span></div>`
+      : "";
   const inner = `<div class="page landscape">
   <h1 class="title">領収書</h1>
   <div class="title-underline"></div>
@@ -186,6 +191,7 @@ function renderReceipt(input: RenderInput): string {
 
   <div class="rc-grid">
     <div class="rc-left">
+      ${stampNote}
       <div class="rc-amount">
         <div style="font-size:12px;color:#555;margin-bottom:4px">領収金額（税込）</div>
         <div class="v">${formatYen(totals.total)} −</div>
@@ -202,10 +208,10 @@ function renderReceipt(input: RenderInput): string {
         <div class="iname">${esc(issuer.name)}</div>
         ${(doc.issuer_person || issuer.person_name) ? `<div>担当：${esc((doc.issuer_person || issuer.person_name) as string)}</div>` : ""}
         ${issuer.registration_number ? `<div class="reg">登録番号：${esc(issuer.registration_number)}</div>` : ""}
-        ${issuer.address ? `〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}<br>` : ""}
-        ${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? esc(issuer.email) : ""}
+        ${issuer.address ? `<div class="iaddr">〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}</div>` : ""}
+        <div class="icontact">${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? esc(issuer.email) : ""}</div>
+        ${sealOverlay}
       </div>
-      <div class="rc-stamp">${stampInner}</div>
     </div>
   </div>
 </div>`;
