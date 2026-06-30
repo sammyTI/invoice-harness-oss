@@ -83,6 +83,11 @@ if (resendKey) {
   mailFrom = (await rl.question(`差出人 ${C.dim}[Invoice Harness <onboarding@resend.dev>]${C.reset}: `)).trim() || "Invoice Harness <onboarding@resend.dev>";
 }
 
+// 管理者（オーナー）アカウント。install 後すぐログインできるよう先に作成する。
+console.log(`\n${C.dim}管理者（オーナー）アカウントを作ります。デプロイ後すぐログインできます。${C.reset}`);
+let ownerEmail = (await rl.question(`管理者メール ${C.dim}[admin@example.com]${C.reset}: `)).trim() || "admin@example.com";
+let ownerPw = (await rl.question(`パスワード ${C.dim}[空欄=自動生成]${C.reset}: `)).trim();
+
 const yn = (await rl.question(`\nこの内容で公開しますか？ ${C.dim}[Y/n]${C.reset}: `)).trim().toLowerCase();
 rl.close();
 if (yn === "n" || yn === "no") {
@@ -158,6 +163,47 @@ step("本番 D1 にマイグレーションを適用します");
 run(wr(`d1 migrations apply ${d1Name} --remote`));
 ok("適用完了");
 
+// ---- 管理者（オーナー）を自動作成（/setup 不要に） ----
+step("管理者アカウントを作成します");
+const { webcrypto } = await import("node:crypto");
+const { randomBytes } = await import("node:crypto");
+function genPw(n = 12) {
+  const cs = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const b = randomBytes(n);
+  let s = "";
+  for (let i = 0; i < n; i++) s += cs[b[i] % cs.length];
+  return s;
+}
+async function hashPw(pw) {
+  const enc = new TextEncoder();
+  const salt = webcrypto.getRandomValues(new Uint8Array(16));
+  const key = await webcrypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = await webcrypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, key, 256);
+  const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return { hash: hex(bits), salt: hex(salt) };
+}
+let ownerCreated = false;
+try {
+  const out = capture(wr(`d1 execute ${d1Name} --remote --json --command "SELECT COUNT(*) AS n FROM members WHERE role='owner'"`));
+  const m = out.match(/"n":\s*(\d+)/);
+  const cnt = m ? Number(m[1]) : 0;
+  if (cnt > 0) {
+    warn("既に管理者が存在します（作成をスキップ）。");
+  } else {
+    if (!ownerPw) ownerPw = genPw();
+    const { hash, salt } = await hashPw(ownerPw);
+    const oid = "mbr_" + randomBytes(6).toString("hex");
+    execSync(
+      wr(`d1 execute ${d1Name} --remote --command "INSERT INTO members (id,name,email,role,created_at,password_hash,salt,status,must_change_password) VALUES ('${oid}','管理者','${ownerEmail}','owner','${new Date().toISOString()}','${hash}','${salt}','active',0)"`),
+      { cwd: root, stdio: ["inherit", "pipe", "pipe"] }
+    );
+    ownerCreated = true;
+    ok("管理者を作成しました");
+  }
+} catch {
+  warn("管理者の自動作成に失敗（デプロイ後 /setup で作成できます）。");
+}
+
 // ---- Pages プロジェクト作成（無いと deploy が対話を要求して失敗するため先に作る） ----
 step(`Pages プロジェクト「${pagesProject}」を用意します`);
 try {
@@ -219,7 +265,15 @@ try {
 
 // ---- 完了 ----
 console.log(`\n${C.green}${C.bold}✓ セットアップ完了！${C.reset}\n`);
-console.log(`${C.bold}▼ まずやること${C.reset}`);
-console.log(`  ブラウザで ${C.bold}${url}/setup${C.reset} を開く → オーナー作成 → 設定 ▸ 自社情報\n`);
+if (ownerCreated) {
+  console.log(`${C.bold}▼ ログイン（管理者は作成済み）${C.reset}`);
+  console.log(`  ${C.bold}${url}/login${C.reset}`);
+  console.log(`  メール:       ${C.bold}${ownerEmail}${C.reset}`);
+  console.log(`  パスワード:   ${C.bold}${ownerPw}${C.reset}`);
+  console.log(`  ${C.dim}ログイン後 設定 ▸ 自社情報 で会社情報を登録（AIからも可）${C.reset}\n`);
+} else {
+  console.log(`${C.bold}▼ まずやること${C.reset}`);
+  console.log(`  ブラウザで ${C.bold}${url}/setup${C.reset} を開く → 管理者作成 → 設定 ▸ 自社情報\n`);
+}
 if (resendKey) console.log(`${C.green}✓ メール送付（Resend）設定済み${C.reset}\n`);
 if (mcpBlock) console.log(mcpBlock + "\n");

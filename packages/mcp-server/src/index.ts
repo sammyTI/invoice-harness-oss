@@ -253,6 +253,13 @@ server.tool(
 );
 
 server.tool(
+  "send_document",
+  "帳票を取引先へメール送付（公開共有リンク付き）。Resend 設定時は実送信、未設定なら『送付済み』記録のみ。送付前に取引先メールが登録されている必要がある。",
+  { id: z.string() },
+  async ({ id }) => ok(await api(`/api/documents/${id}/send`, { method: "POST", body: "{}" }))
+);
+
+server.tool(
   "record_payment",
   "請求書に入金を記録（部分入金可）。amount省略時は残額全額。reference に入金伝票番号・摘要を入れられる。",
   {
