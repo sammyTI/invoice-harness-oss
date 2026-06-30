@@ -48,14 +48,10 @@ run(`git clone --depth 1 ${REPO} "${target}"`);
 console.log("\n▸ 依存をインストールします");
 run("pnpm install", { cwd: target });
 
-console.log("\n▸ Cloudflare へセットアップ＆デプロイします");
-console.log("  （ブラウザで Cloudflare ログインを求められます）\n");
+console.log("\n▸ セットアップを開始します（対話式）\n");
 try {
-  run("pnpm setup", { cwd: target });
+  run("node scripts/setup.mjs", { cwd: target });
 } catch {
-  console.error(`\n✗ デプロイ途中で停止しました。\n  cd ${dir} && pnpm setup  で続きから再実行できます（README の手動手順も参照）。`);
+  console.error(`\n✗ セットアップ途中で停止しました。\n  cd ${dir} && pnpm run setup  で続きから再実行できます（README の手動手順も参照）。`);
   process.exit(1);
 }
-
-console.log(`\n✓ 完了！「${dir}」に作成しました。`);
-console.log("  表示された URL を開き、/setup でオーナー（管理者）を作成してください。\n");

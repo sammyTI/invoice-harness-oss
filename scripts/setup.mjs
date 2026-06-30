@@ -1,121 +1,159 @@
 #!/usr/bin/env node
 /**
- * invoice-harness-oss セットアップ（Cloudflare 無料枠に一発デプロイ）
+ * invoice-harness セットアップ（対話式・Cloudflare 無料枠へデプロイ）
+ * 実行: node scripts/setup.mjs   または   pnpm run setup
  *
- * 実行: pnpm setup
- *
- * やること:
- *   1) Cloudflare ログイン確認
- *   2) D1 データベース作成 → database_id を wrangler.toml に自動書き込み
- *   3) R2 バケット作成（社印・ロゴ保存用）
- *   4) ビルド
- *   5) D1 マイグレーション適用（本番）
- *   6) Pages（ダッシュボード）と Worker（催促Cron）をデプロイ
- *   7) 公開URLを表示 → /setup でオーナーを作成
- *
- * 途中で失敗しても、もう一度 pnpm setup を実行すれば続きから進められます
- * （作成済みの D1/R2 は「already exists」で無害にスキップされます）。
+ * プロジェクト名を選び、Cloudflare にログインして、D1 / R2 作成 →
+ * マイグレーション → Pages / Worker デプロイまで対話で進めます。
  */
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DB_NAME = "invoice_harness";
-const R2_BUCKET = "invoice-harness-assets";
+const C = { cyan: "\x1b[36m", yellow: "\x1b[33m", green: "\x1b[32m", dim: "\x1b[2m", bold: "\x1b[1m", reset: "\x1b[0m" };
+const step = (m) => console.log(`\n${C.cyan}${C.bold}▸ ${m}${C.reset}`);
+const ok = (m) => console.log(`  ${C.green}✓${C.reset} ${m}`);
+const warn = (m) => console.log(`  ${C.yellow}! ${m}${C.reset}`);
 
-const log = (m) => console.log(`\n[36m▸ ${m}[0m`);
-const warn = (m) => console.log(`[33m${m}[0m`);
+const wr = (args) => `pnpm --filter @invoice-harness/web exec wrangler ${args}`;
+const run = (cmd, opts = {}) => execSync(cmd, { cwd: root, stdio: "inherit", ...opts });
+const capture = (cmd, opts = {}) => execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], ...opts });
 
-function run(cmd, opts = {}) {
-  return execSync(cmd, { cwd: root, stdio: "inherit", ...opts });
+function patchToml(file, replacements) {
+  const p = resolve(root, file);
+  let t = readFileSync(p, "utf8");
+  for (const [re, val] of replacements) t = t.replace(re, val);
+  writeFileSync(p, t);
 }
-function capture(cmd, opts = {}) {
-  return execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], ...opts });
-}
-const wr = (args, o) => `pnpm --filter @invoice-harness/web exec wrangler ${args}`;
 
-// 1) ログイン確認
-log("Cloudflare ログインを確認します");
+console.log(`\n${C.bold}────────────────────────────────`);
+console.log("  invoice-harness セットアップ");
+console.log(`────────────────────────────────${C.reset}`);
+console.log(`${C.dim}Cloudflare 無料枠に、あなた専用の請求書ツールをデプロイします。${C.reset}\n`);
+
+// ---- 対話: プロジェクト名 ----
+const rl = createInterface({ input: process.stdin, output: process.stdout });
+let raw = (await rl.question(`プロジェクト名を入力（同じCFアカウントで複数立てる場合は別名に） ${C.dim}[invoice-harness]${C.reset}: `)).trim();
+let name = (raw || "invoice-harness").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "invoice-harness";
+
+const pagesProject = name;
+const workerName = `${name}-worker`;
+const r2Bucket = `${name}-assets`;
+const d1Name = name.replace(/-/g, "_");
+
+console.log(`\n以下を作成します:`);
+console.log(`  ${C.dim}Pages(画面)${C.reset}   ${pagesProject}  → https://${pagesProject}.pages.dev`);
+console.log(`  ${C.dim}D1(DB)${C.reset}        ${d1Name}`);
+console.log(`  ${C.dim}R2(画像)${C.reset}      ${r2Bucket}`);
+console.log(`  ${C.dim}Worker(催促)${C.reset}  ${workerName}`);
+const yn = (await rl.question(`\nこの内容でデプロイしますか？ ${C.dim}[Y/n]${C.reset}: `)).trim().toLowerCase();
+rl.close();
+if (yn === "n" || yn === "no") {
+  console.log("中止しました。");
+  process.exit(0);
+}
+
+// ---- wrangler.toml を反映 ----
+step("設定ファイルを反映します");
+patchToml("apps/web/wrangler.toml", [
+  [/^name\s*=\s*".*"/m, `name = "${pagesProject}"`],
+  [/database_name\s*=\s*"[^"]*"/, `database_name = "${d1Name}"`],
+  [/bucket_name\s*=\s*"[^"]*"/, `bucket_name = "${r2Bucket}"`],
+]);
+patchToml("apps/worker/wrangler.toml", [
+  [/^name\s*=\s*".*"/m, `name = "${workerName}"`],
+  [/database_name\s*=\s*"[^"]*"/, `database_name = "${d1Name}"`],
+]);
+ok("wrangler.toml を更新");
+
+// ---- Cloudflare ログイン ----
+step("Cloudflare ログインを確認します");
+let who = "";
 try {
-  capture(wr("whoami"));
+  who = capture(wr("whoami"));
 } catch {
-  warn("未ログインです。ブラウザで Cloudflare にログインしてください。");
+  warn("未ログインです。ブラウザで Cloudflare にログインしてください…");
   run(wr("login"));
 }
 
-// 2) D1 作成 + database_id を wrangler.toml に書き込み
-log(`D1 データベース「${DB_NAME}」を作成します`);
+// ---- D1 作成 ----
+step(`D1 データベース「${d1Name}」を用意します`);
 let dbId = "";
 try {
-  const out = capture(wr(`d1 create ${DB_NAME}`));
+  const out = capture(wr(`d1 create ${d1Name}`));
   dbId = (out.match(/database_id\s*=\s*"([0-9a-f-]+)"/i) || [])[1] || "";
-  console.log(out);
 } catch (e) {
   const out = String(e.stdout || "") + String(e.stderr || "");
   if (/already exists/i.test(out)) {
-    warn("D1 は既に存在します。既存の ID を取得します。");
-    const list = capture(wr("d1 list --json"));
+    warn("既存の D1 を再利用します。");
     try {
-      const found = JSON.parse(list).find((d) => d.name === DB_NAME);
-      dbId = found?.uuid || found?.database_id || "";
+      dbId = (JSON.parse(capture(wr("d1 list --json"))).find((d) => d.name === d1Name) || {}).uuid || "";
     } catch {}
   } else {
     console.error(out);
-    throw e;
+    process.exit(1);
   }
 }
 if (!dbId) {
-  warn("database_id を自動取得できませんでした。`wrangler d1 list` で ID を確認し、apps/web/wrangler.toml と apps/worker/wrangler.toml の database_id を手動で設定してください。");
+  warn("database_id を自動取得できませんでした。`pnpm --filter @invoice-harness/web exec wrangler d1 list` で確認し、wrangler.toml に手動設定してください。");
 } else {
-  for (const f of ["apps/web/wrangler.toml", "apps/worker/wrangler.toml"]) {
-    const p = resolve(root, f);
-    const t = readFileSync(p, "utf8").replace(/database_id\s*=\s*"[^"]*"/, `database_id = "${dbId}"`);
-    writeFileSync(p, t);
-    console.log(`  ✓ ${f} に database_id を設定`);
-  }
+  patchToml("apps/web/wrangler.toml", [[/database_id\s*=\s*"[^"]*"/, `database_id = "${dbId}"`]]);
+  patchToml("apps/worker/wrangler.toml", [[/database_id\s*=\s*"[^"]*"/, `database_id = "${dbId}"`]]);
+  ok(`database_id を設定 (${dbId.slice(0, 8)}…)`);
 }
 
-// 3) R2 バケット作成
-log(`R2 バケット「${R2_BUCKET}」を作成します`);
+// ---- R2 作成 ----
+step(`R2 バケット「${r2Bucket}」を用意します`);
 try {
-  run(wr(`r2 bucket create ${R2_BUCKET}`));
+  capture(wr(`r2 bucket create ${r2Bucket}`));
+  ok("作成しました");
 } catch {
-  warn("R2 バケットは既に存在します（スキップ）。");
+  warn("既存のバケットを再利用します。");
 }
 
-// 4) ビルド
-log("ビルドします");
+// ---- ビルド ----
+step("ビルドします（少し時間がかかります）");
 run("pnpm build");
+ok("ビルド完了");
 
-// 5) マイグレーション（本番）
-log("本番 D1 にマイグレーションを適用します");
-run(wr(`d1 migrations apply ${DB_NAME} --remote`));
+// ---- マイグレーション ----
+step("本番 D1 にマイグレーションを適用します");
+run(wr(`d1 migrations apply ${d1Name} --remote`));
+ok("適用完了");
 
-// 6) デプロイ
-log("ダッシュボード（Pages）をデプロイします");
-run("pnpm --filter @invoice-harness/web exec wrangler pages deploy .svelte-kit/cloudflare --project-name invoice-harness");
+// ---- Pages デプロイ ----
+step("ダッシュボード（Pages）をデプロイします");
+let url = `https://${pagesProject}.pages.dev`;
+try {
+  const out = capture(`pnpm --filter @invoice-harness/web exec wrangler pages deploy .svelte-kit/cloudflare --project-name ${pagesProject}`);
+  console.log(out);
+  const m = out.match(/https:\/\/[a-z0-9-]+\.pages\.dev/i);
+  if (m) console.log("");
+} catch (e) {
+  // 初回はプロジェクト未作成で対話が要る場合がある
+  console.error(String(e.stdout || "") + String(e.stderr || ""));
+  warn("Pages デプロイで停止しました。もう一度 `pnpm run setup` を実行すると続きから進みます。");
+  process.exit(1);
+}
+ok(`公開URL: ${url}`);
 
-log("催促ワーカー（Cron）をデプロイします");
+// ---- Worker デプロイ ----
+step("催促ワーカー（Cron）をデプロイします");
+patchToml("apps/worker/wrangler.toml", [[/APP_URL\s*=\s*"[^"]*"/, `APP_URL = "${url}"`]]);
 try {
   run("pnpm --filter @invoice-harness/worker exec wrangler deploy");
+  ok("デプロイ完了");
 } catch {
-  warn("Worker のデプロイに失敗しました（催促メールが不要なら無視して構いません）。");
+  warn("Worker のデプロイをスキップしました（催促メールが不要なら問題ありません）。");
 }
 
-// 7) 完了
-log("セットアップ完了！");
-console.log(`
-次の手順:
-  1. 表示された Pages の URL（https://invoice-harness.pages.dev など）を開く
-  2. /setup でオーナー（管理者）アカウントを作成
-  3. 設定 ▸ 自社情報 で会社情報・振込先を登録
-
-任意:
-  - 催促メールを使う場合: apps/worker で
-      wrangler secret put RESEND_API_KEY
-      wrangler secret put MAIL_FROM
-    を設定し、apps/worker/wrangler.toml の APP_URL を自分のURLに変更して再デプロイ
-  - AI（Claude等）から操作: 設定 ▸ API/AI連携 でトークン発行 → packages/mcp-server を参照
-`);
+// ---- 完了 ----
+console.log(`\n${C.green}${C.bold}✓ セットアップ完了！${C.reset}\n`);
+console.log(`次の手順:`);
+console.log(`  1. ブラウザで ${C.bold}${url}/setup${C.reset} を開く`);
+console.log(`  2. オーナー（管理者）アカウントを作成`);
+console.log(`  3. 設定 ▸ 自社情報 で会社情報・振込先を登録 → 請求書作成へ\n`);
+console.log(`${C.dim}任意: 催促メール(Resend)・AI操作(MCP)は README を参照。${C.reset}\n`);

@@ -39,7 +39,7 @@ npx create-invoice-harness
 git clone https://github.com/sammyTI/invoice-harness-oss.git
 cd invoice-harness-oss
 pnpm install
-pnpm setup
+pnpm run setup
 ```
 
 完了すると公開URL（`https://invoice-harness.pages.dev` など）が表示されます。
@@ -108,7 +108,7 @@ packages/mcp-server AI操作用 MCP サーバ
 
 ---
 
-## 手動セットアップ（`pnpm setup` を使わない場合）
+## 手動セットアップ（`pnpm run setup` を使わない場合）
 
 ```bash
 pnpm install
