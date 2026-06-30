@@ -134,6 +134,8 @@ export interface DocumentRecord {
   sent_at?: string | null;
   paid_at?: string | null;
   share_token?: string | null;
+  /** 発行した担当者（メンバー）名のスナップショット。無い場合は描画時に issuers.person_name へフォールバック。 */
+  issuer_person?: string | null;
 }
 
 export interface Settings {

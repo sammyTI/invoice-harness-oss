@@ -24,6 +24,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     due_date?: string;
     subject?: string;
     notes?: string;
+    issuer_person?: string;
     lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number }[];
   };
 
@@ -87,6 +88,8 @@ export const POST: RequestHandler = async ({ platform, request }) => {
       subject: body.subject ?? null,
       notes: body.notes ?? null,
       division_id: divisionId,
+      // API/AI 発行は担当者を任意指定（省略時は描画で issuers.person_name にフォールバック）。
+      issuer_person: body.issuer_person ?? null,
       lines,
     },
     "api"

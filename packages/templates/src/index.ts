@@ -174,7 +174,7 @@ function renderReceipt(input: RenderInput): string {
       <div class="issuer" style="text-align:right;border:0;padding:0;background:none">
         ${issuer.logo_key ? `<div class="logo-img"><img src="${esc(issuer.logo_key)}" alt="ロゴ"></div>` : ""}
         <div class="iname">${esc(issuer.name)}</div>
-        ${issuer.person_name ? `<div>担当：${esc(issuer.person_name)}</div>` : ""}
+        ${(doc.issuer_person || issuer.person_name) ? `<div>担当：${esc((doc.issuer_person || issuer.person_name) as string)}</div>` : ""}
         ${issuer.registration_number ? `<div class="reg">登録番号：${esc(issuer.registration_number)}</div>` : ""}
         ${issuer.address ? `〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}<br>` : ""}
         ${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? esc(issuer.email) : ""}
@@ -315,7 +315,7 @@ export function renderDocument(input: RenderInput): string {
       <div class="issuer">
         ${issuer.logo_key ? `<div class="logo-img"><img src="${esc(issuer.logo_key)}" alt="ロゴ"></div>` : ""}
         <div class="iname">${esc(issuer.name)}</div>
-        ${issuer.person_name ? `<div>担当：${esc(issuer.person_name)}</div>` : ""}
+        ${(doc.issuer_person || issuer.person_name) ? `<div>担当：${esc((doc.issuer_person || issuer.person_name) as string)}</div>` : ""}
         ${regLine}
         ${issuer.address ? `〒${esc(issuer.postal_code)} ${nl2br(issuer.address)}<br>` : ""}
         ${issuer.tel ? `TEL ${esc(issuer.tel)}　` : ""}${issuer.email ? `${esc(issuer.email)}` : ""}

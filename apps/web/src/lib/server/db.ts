@@ -930,6 +930,8 @@ export interface CreateDocumentInput {
   notes?: string | null;
   parent_id?: string | null;
   division_id?: string | null;
+  /** 発行した担当者（メンバー）名。ブラウザはログイン中メンバー名、APIは任意指定。 */
+  issuer_person?: string | null;
   lines: CreateLineInput[];
 }
 
@@ -965,8 +967,8 @@ export async function createDocument(
     db
       .prepare(
         `INSERT INTO documents
-         (id, type, number, status, issuer_id, client_id, issue_date, due_date, subject, notes, rounding, parent_id, subtotal, tax_total, total, division_id)
-         VALUES (?1,?2,?3,'draft',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)`
+         (id, type, number, status, issuer_id, client_id, issue_date, due_date, subject, notes, rounding, parent_id, subtotal, tax_total, total, division_id, issuer_person)
+         VALUES (?1,?2,?3,'draft',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)`
       )
       .bind(
         id,
@@ -983,7 +985,8 @@ export async function createDocument(
         totals.subtotal,
         totals.tax_total,
         totals.total,
-        input.division_id ?? null
+        input.division_id ?? null,
+        input.issuer_person ?? null
       ),
   ];
 
@@ -1126,6 +1129,7 @@ export async function duplicateDocument(db: D1Database, id: string, actor = "loc
       subject: full.doc.subject,
       notes: full.doc.notes,
       division_id: full.doc.division_id ?? null,
+      issuer_person: full.doc.issuer_person ?? null,
       lines: linesOf(full),
     },
     actor
@@ -1158,6 +1162,7 @@ export async function createCorrection(db: D1Database, id: string, actor = "loca
       subject: full.doc.subject ? `${full.doc.subject}（訂正版）` : "（訂正版）",
       notes: full.doc.notes,
       division_id: full.doc.division_id ?? null,
+      issuer_person: full.doc.issuer_person ?? null,
       parent_id: id,
       lines: linesOf(full),
     },
@@ -1185,6 +1190,8 @@ export async function convertDocument(
       due_date: full.doc.due_date,
       subject: full.doc.subject,
       notes: full.doc.notes,
+      division_id: full.doc.division_id ?? null,
+      issuer_person: full.doc.issuer_person ?? null,
       parent_id: full.doc.id,
       lines: linesOf(full),
     },

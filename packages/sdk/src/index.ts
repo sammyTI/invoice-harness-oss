@@ -30,6 +30,8 @@ export interface CreateDocumentInput {
   client_name?: string;
   issuer_id?: string;
   issuer_name?: string;
+  /** 発行担当者名（省略時はサーバ側で issuers.person_name にフォールバック）。 */
+  issuer_person?: string;
   division_id?: string;
   division_name?: string;
   issue_date?: string;

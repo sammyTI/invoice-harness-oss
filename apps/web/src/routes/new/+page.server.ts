@@ -98,7 +98,8 @@ export const actions: Actions = {
 
     const id = await createDocument(
       db,
-      { type, issuer_id, client_id, issue_date, due_date, subject, notes, division_id, lines },
+      // 発行者＝ログイン中メンバー名を帳票にスナップショット（「担当：」に表示）。
+      { type, issuer_id, client_id, issue_date, due_date, subject, notes, division_id, issuer_person: locals.user?.name ?? null, lines },
       getActor({ request, locals })
     );
 
