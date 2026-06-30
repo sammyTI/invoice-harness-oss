@@ -73,6 +73,16 @@ console.log(`  ${C.dim}Pages(画面)${C.reset}   ${pagesProject}  → https://${
 console.log(`  ${C.dim}D1(DB)${C.reset}        ${d1Name}`);
 console.log(`  ${C.dim}R2(画像)${C.reset}      ${r2Bucket}`);
 console.log(`  ${C.dim}Worker(催促)${C.reset}  ${workerName}`);
+
+// 任意: Resend（メール送付・未入金催促）。未設定でもアプリは動く。
+console.log(`\n${C.dim}メール送付・催促を使う場合は Resend の APIキー（https://resend.com で無料取得）。`);
+console.log(`不要なら空欄で Enter（あとから設定できます）。${C.reset}`);
+const resendKey = (await rl.question(`Resend APIキー ${C.dim}[空欄=使わない]${C.reset}: `)).trim();
+let mailFrom = "";
+if (resendKey) {
+  mailFrom = (await rl.question(`差出人 ${C.dim}[Invoice Harness <onboarding@resend.dev>]${C.reset}: `)).trim() || "Invoice Harness <onboarding@resend.dev>";
+}
+
 const yn = (await rl.question(`\nこの内容で公開しますか？ ${C.dim}[Y/n]${C.reset}: `)).trim().toLowerCase();
 rl.close();
 if (yn === "n" || yn === "no") {
@@ -175,10 +185,44 @@ try {
   warn("Worker のデプロイをスキップしました（催促メールが不要なら問題ありません）。");
 }
 
+// ---- Resend（メール）シークレット設定（入力された場合のみ） ----
+if (resendKey) {
+  step("メール送付（Resend）を設定します");
+  const putPages = (n, v) => { try { execSync(`pnpm --filter @invoice-harness/web exec wrangler pages secret put ${n} --project-name ${pagesProject}`, { cwd: root, input: v, stdio: ["pipe", "inherit", "inherit"] }); return true; } catch { return false; } };
+  const putWorker = (n, v) => { try { execSync(`pnpm --filter @invoice-harness/worker exec wrangler secret put ${n}`, { cwd: root, input: v, stdio: ["pipe", "inherit", "inherit"] }); return true; } catch { return false; } };
+  const r1 = putPages("RESEND_API_KEY", resendKey), r2 = putPages("MAIL_FROM", mailFrom);
+  const r3 = putWorker("RESEND_API_KEY", resendKey), r4 = putWorker("MAIL_FROM", mailFrom);
+  if (r1 && r2 && r3 && r4) ok("メール送付・催促を有効化しました");
+  else warn("一部のシークレット設定に失敗。README の「メール送付」手順で手動設定できます。");
+}
+
+// ---- AI連携（MCP）トークンを自動発行＋設定を出力 ----
+step("AI連携（MCP）を準備します");
+let mcpBlock = "";
+try {
+  execSync("pnpm --filter @invoice-harness/mcp-server build", { cwd: root, stdio: ["inherit", "pipe", "pipe"] });
+  const { createHash, randomBytes } = await import("node:crypto");
+  const apiToken = randomBytes(24).toString("hex");
+  const tokenHash = createHash("sha256").update(apiToken).digest("hex");
+  const tokId = "tok_" + randomBytes(6).toString("hex");
+  execSync(wr(`d1 execute ${d1Name} --remote --command "INSERT INTO api_tokens (id,name,token_hash,created_at) VALUES ('${tokId}','setup-mcp','${tokenHash}','${new Date().toISOString()}')"`), { cwd: root, stdio: ["inherit", "pipe", "pipe"] });
+  const mcpPath = resolve(root, "packages/mcp-server/dist/index.js");
+  mcpBlock =
+    `${C.bold}AI（Claude）から自然言語で操作する（MCP）${C.reset}\n` +
+    `  Claude Code をお使いなら、次のコマンドを実行（URL・トークンは設定済み）:\n\n` +
+    `  ${C.cyan}claude mcp add invoice-harness \\\n` +
+    `    --env IH_API_URL=${url} \\\n` +
+    `    --env IH_API_TOKEN=${apiToken} \\\n` +
+    `    -- node ${mcpPath}${C.reset}\n\n` +
+    `  ${C.dim}（このトークンは アプリの 設定 ▸ API/AI連携 でいつでも失効できます）${C.reset}`;
+  ok("MCPトークンを発行しました（上記コマンドで登録）");
+} catch {
+  warn("MCPの自動準備をスキップ（後で 設定 ▸ API/AI連携 でトークン発行→README参照）");
+}
+
 // ---- 完了 ----
 console.log(`\n${C.green}${C.bold}✓ セットアップ完了！${C.reset}\n`);
-console.log(`次の手順:`);
-console.log(`  1. ブラウザで ${C.bold}${url}/setup${C.reset} を開く`);
-console.log(`  2. オーナー（管理者）アカウントを作成`);
-console.log(`  3. 設定 ▸ 自社情報 で会社情報・振込先を登録 → 請求書作成へ\n`);
-console.log(`${C.dim}任意: 催促メール(Resend)・AI操作(MCP)は README を参照。${C.reset}\n`);
+console.log(`${C.bold}▼ まずやること${C.reset}`);
+console.log(`  ブラウザで ${C.bold}${url}/setup${C.reset} を開く → オーナー作成 → 設定 ▸ 自社情報\n`);
+if (resendKey) console.log(`${C.green}✓ メール送付（Resend）設定済み${C.reset}\n`);
+if (mcpBlock) console.log(mcpBlock + "\n");
