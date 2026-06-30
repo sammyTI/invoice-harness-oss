@@ -1,4 +1,5 @@
 <script>
+  import { enhance } from "$app/forms";
   export let data;
   export let form;
 
@@ -50,7 +51,7 @@
               {#if editId === m.id}
                 <tr class="editrow">
                   <td colspan="5">
-                    <form method="POST" action="?/update" class="eform" on:submit={() => (editId = null)}>
+                    <form method="POST" action="?/update" class="eform" use:enhance={() => async ({ update }) => { await update({ reset: false }); editId = null; }}>
                       <input type="hidden" name="id" value={m.id} />
                       <label class="ef"><span>名前</span><input class="input" name="name" value={m.name} required /></label>
                       <label class="ef"><span>メール</span><input class="input" type="email" name="email" value={m.email ?? ""} /></label>
