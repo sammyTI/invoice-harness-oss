@@ -1,0 +1,24 @@
+name = "invoice-harness-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Phase 2: daily dunning check for overdue, unpaid invoices.
+[triggers]
+crons = ["0 0 * * *"]
+
+# 本番前に `wrangler d1 create invoice_harness` の ID を database_id に設定（`pnpm setup` で自動）。
+[[d1_databases]]
+binding = "DB"
+database_name = "invoice_harness"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "../../packages/db/migrations"
+
+# デプロイ後の Pages の公開URL（催促メールのリンクに使用）。自分のURLに置き換えてください。
+[vars]
+APP_URL = "https://YOUR-PROJECT.pages.dev"
+# 催促メールを有効にするには RESEND_API_KEY / MAIL_FROM を secret 設定:
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put MAIL_FROM
+
+# RESEND_API_KEY / MAIL_FROM are set as secrets via `wrangler secret put`.
+

@@ -1,0 +1,27 @@
+{
+  "name": "invoice-harness-oss",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hostable invoicing & billing document suite (estimate / order / invoice / receipt / payment notice) that runs entirely on the Cloudflare free tier. A free, open-source alternative to Misoca.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "pnpm --filter @invoice-harness/web dev",
+    "build": "pnpm -r --filter ./packages/* build && pnpm --filter @invoice-harness/web build",
+    "db:migrate:local": "pnpm --filter @invoice-harness/web db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @invoice-harness/web db:migrate:remote",
+    "db:seed:local": "pnpm --filter @invoice-harness/web db:seed:local",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @invoice-harness/shared test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd", "sharp"]
+  }
+}

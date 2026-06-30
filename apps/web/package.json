@@ -1,0 +1,30 @@
+{
+  "name": "@invoice-harness/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "wrangler pages dev .svelte-kit/cloudflare",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "db:migrate:local": "wrangler d1 migrations apply invoice_harness --local",
+    "db:migrate:remote": "wrangler d1 migrations apply invoice_harness --remote",
+    "db:seed:local": "wrangler d1 execute invoice_harness --local --file ../../packages/db/seed.sql"
+  },
+  "dependencies": {
+    "@invoice-harness/shared": "workspace:*",
+    "@invoice-harness/templates": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "@sveltejs/adapter-cloudflare": "^4.7.2",
+    "@sveltejs/kit": "^2.8.1",
+    "@sveltejs/vite-plugin-svelte": "^4.0.1",
+    "svelte": "^5.1.16",
+    "svelte-check": "^4.0.7",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "wrangler": "^3.84.0"
+  }
+}

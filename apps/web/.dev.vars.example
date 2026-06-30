@@ -1,0 +1,11 @@
+# ローカル開発用シークレット（wrangler getPlatformProxy / vite dev が読み込む）
+# このファイルをコピーして apps/web/.dev.vars を作り、値を入れてください。
+# .dev.vars は .gitignore 済み（コミットされません）。
+
+# Resend APIキー（https://resend.com で無料取得）
+RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
+
+# 差出人。独自ドメイン未認証なら Resend のテスト送信元を使う:
+#   MAIL_FROM="Invoice Harness <onboarding@resend.dev>"
+# ※テスト送信元の場合、宛先は Resend 登録メール本人にしか送れません。
+MAIL_FROM="Invoice Harness <onboarding@resend.dev>"

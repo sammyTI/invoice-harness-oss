@@ -1,0 +1,9 @@
+{
+  "name": "@invoice-harness/db",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo \"(db) sql only, nothing to build\"",
+    "typecheck": "echo \"(db) no ts\""
+  }
+}
