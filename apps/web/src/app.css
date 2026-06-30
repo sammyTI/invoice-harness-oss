@@ -213,3 +213,20 @@ input[type="date"].input { appearance: none; -webkit-appearance: none; }
 }
 .flash-ok { background: var(--green-soft); color: #136c41; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
 .flash-err { background: var(--red-soft); color: #a52f2f; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
+
+/* ---- モバイル: flex操作行の折り返し（右見切れの横断対策） ---- */
+@media (max-width: 640px) {
+  .searchbar,
+  .bulkbar,
+  .bulk-actions,
+  .sub-head,
+  .pl-head,
+  .section-head,
+  .companynav,
+  .fynav { flex-wrap: wrap; }
+  .searchbar { gap: 8px; }
+  .searchbar .input { max-width: 100%; flex: 1 1 100%; }
+  .bulkbar { gap: 8px 12px; }
+  /* 保険: メインから子がはみ出しても画面外に押し出さない */
+  main { overflow-x: clip; }
+}

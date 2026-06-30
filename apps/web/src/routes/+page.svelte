@@ -162,4 +162,12 @@
   .cname { font-weight: 700; }
   .docno { font-size: 11px; color: var(--muted); }
   .tchip { display: inline-grid; place-items: center; min-width: 30px; height: 22px; padding: 0 6px; border-radius: 6px; background: var(--slate-soft); color: var(--ink-2); font-size: 12px; font-weight: 700; }
+  /* スマホ: 12本の月次バーが画面幅を超えないよう間隔・ラベルを詰める */
+  @media (max-width: 560px) {
+    .pl { padding: 14px 12px; }
+    .chart { gap: 3px; }
+    .mcol { min-width: 0; }
+    .bar { width: 60%; }
+    .mlabel { font-size: 9px; }
+  }
 </style>

@@ -49,6 +49,7 @@
   .hint { color: var(--ink-2); font-size: 13px; margin-top: -8px; }
   .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 18px; }
   @media (max-width: 900px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .cards { grid-template-columns: repeat(2, 1fr); } }
   .kc { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
   .kc .lab { font-size: 11px; color: var(--muted); }
   .kc .val { font-size: 18px; font-weight: 800; }
