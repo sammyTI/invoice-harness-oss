@@ -293,6 +293,56 @@ server.tool(
   }
 );
 
+// ---------- 帳票の編集（下書き） ----------
+server.tool(
+  "update_document",
+  "下書きの内容を更新（部分指定可・未指定は現状維持）。発行済みは編集不可（取消＋訂正を使う）。id は list_documents で取得。",
+  {
+    id: z.string(),
+    subject: z.string().optional(),
+    notes: z.string().optional(),
+    issue_date: z.string().optional(),
+    due_date: z.string().optional(),
+    lines: z.array(z.object({ name: z.string(), quantity: z.number().optional(), unit: z.string().optional(), unit_price: z.number().optional(), tax_rate: z.number().optional() })).optional().describe("指定すると明細を丸ごと置き換え"),
+  },
+  async ({ id, ...body }) => ok(await api(`/api/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+// ---------- メール文面テンプレート ----------
+server.tool("list_email_templates", "メール文面テンプレートの一覧（key/件名/本文）。", {}, async () => ok(await api(`/api/email-templates`)));
+server.tool(
+  "update_email_template",
+  "メール文面テンプレートを更新（key は list_email_templates で取得）。",
+  { key: z.string(), subject: z.string(), body: z.string() },
+  async ({ key, ...body }) => ok(await api(`/api/email-templates/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+// ---------- 帳票種別ごとの既定備考 ----------
+server.tool("get_doc_templates", "帳票種別ごとの既定備考を取得（type -> notes）。", {}, async () => ok(await api(`/api/doc-templates`)));
+server.tool(
+  "set_doc_template",
+  "帳票種別ごとの既定備考を設定（新規作成時に自動挿入）。",
+  { type: z.enum(["estimate", "delivery_note", "order", "invoice", "receipt", "payment_notice"]), notes: z.string() },
+  async ({ type, notes }) => ok(await api(`/api/doc-templates/${type}`, { method: "PUT", body: JSON.stringify({ notes }) }))
+);
+
+// ---------- 監査ログ（読み取り専用） ----------
+server.tool("list_audit", "監査ログ（操作履歴・改ざん検知チェーン）を取得。読み取り専用。", { limit: z.number().optional() }, async ({ limit }) => ok(await api(`/api/audit${limit ? `?limit=${limit}` : ""}`)));
+
+// ---------- 入出金・消込 ----------
+server.tool("list_transactions", "銀行明細(入出金)の一覧。status で絞り込み（例 unmatched）。", { status: z.string().optional() }, async ({ status }) => ok(await api(`/api/transactions${status ? `?status=${encodeURIComponent(status)}` : ""}`)));
+server.tool(
+  "reconcile_transaction",
+  "銀行明細を帳票に消し込む（入金記録＋ステータス更新）。txn_id と帳票番号で指定。",
+  { txn_id: z.string(), document_number: z.string().describe("消し込む帳票の番号（例 INV-2026-0001）") },
+  async ({ txn_id, document_number }) => {
+    const r = (await api(`/api/documents`)) as { documents?: { id: string; number: string }[] };
+    const hit = (r.documents ?? []).find((d) => d.number === document_number);
+    if (!hit) return ok({ error: `document not found: ${document_number}` });
+    return ok(await api(`/api/transactions/${txn_id}/reconcile`, { method: "POST", body: JSON.stringify({ document_id: hit.id }) }));
+  }
+);
+
 server.tool("delete_document", "帳票を削除（下書きのみ。発行済みは cancel_document を使う）。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}`, { method: "DELETE" })));
 
 server.tool(
