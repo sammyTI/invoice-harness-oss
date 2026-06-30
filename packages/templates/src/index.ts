@@ -119,16 +119,27 @@ function shell(title: string, number: string, accent: string, inner: string, lan
 ${inner}
 <script>
   (function () {
-    if (window.self === window.top) return;
+    var page = document.querySelector('.page'); if (!page) return;
+    var embedded = window.self !== window.top;
     function fit() {
-      var page = document.querySelector('.page'); var bar = document.querySelector('.toolbar');
-      if (!page) return; if (bar) bar.style.display = 'none';
-      document.documentElement.style.background = '#fff'; document.body.style.background = '#fff';
-      document.body.style.margin = '0'; page.style.margin = '0'; page.style.transform = 'none';
-      var scale = document.documentElement.clientWidth / (page.offsetWidth || 794);
-      page.style.transformOrigin = 'top left'; page.style.transform = 'scale(' + scale + ')';
-      document.body.style.height = (page.offsetHeight * scale) + 'px';
+      if (embedded) {
+        // 詳細画面のプレビュー(iframe)：枠幅にA4を全幅フィット
+        var bar = document.querySelector('.toolbar'); if (bar) bar.style.display = 'none';
+        document.documentElement.style.background = '#fff'; document.body.style.background = '#fff';
+        document.body.style.margin = '0'; page.style.margin = '0'; page.style.transform = 'none';
+        var scale = document.documentElement.clientWidth / (page.offsetWidth || 794);
+        page.style.transformOrigin = 'top left'; page.style.transform = 'scale(' + scale + ')';
+        document.body.style.height = (page.offsetHeight * scale) + 'px';
+        return;
+      }
+      // 直接表示(共有リンク/印刷画面)：スマホ等の狭い画面だけ zoom で全体を縮小（印刷は解除）
+      page.style.zoom = '';
+      var avail = document.documentElement.clientWidth;
+      var pw = page.offsetWidth || 794;
+      if (avail < pw) page.style.zoom = avail / pw;
     }
+    window.addEventListener('beforeprint', function () { if (!embedded) page.style.zoom = ''; });
+    window.addEventListener('afterprint', fit);
     window.addEventListener('load', fit); window.addEventListener('resize', fit); fit();
   })();
 </script>
@@ -361,26 +372,32 @@ export function renderDocument(input: RenderInput): string {
   </div>
 </div>
 <script>
-  // 埋め込みプレビュー（iframe）時は、A4幅を枠幅にフィットさせて全幅表示する
   (function () {
-    if (window.self === window.top) return;
+    var page = document.querySelector('.page'); if (!page) return;
+    var embedded = window.self !== window.top;
     function fit() {
-      var page = document.querySelector('.page');
-      var bar = document.querySelector('.toolbar');
-      if (!page) return;
-      if (bar) bar.style.display = 'none';
-      document.documentElement.style.background = '#fff';
-      document.body.style.background = '#fff';
-      document.body.style.margin = '0';
-      page.style.margin = '0';
-      page.style.transform = 'none';
+      if (embedded) {
+        // 詳細画面のプレビュー(iframe)：枠幅にA4を全幅フィット
+        var bar = document.querySelector('.toolbar'); if (bar) bar.style.display = 'none';
+        document.documentElement.style.background = '#fff';
+        document.body.style.background = '#fff';
+        document.body.style.margin = '0';
+        page.style.margin = '0';
+        page.style.transform = 'none';
+        var scale = document.documentElement.clientWidth / (page.offsetWidth || 794);
+        page.style.transformOrigin = 'top left';
+        page.style.transform = 'scale(' + scale + ')';
+        document.body.style.height = (page.offsetHeight * scale) + 'px';
+        return;
+      }
+      // 直接表示(共有リンク/印刷画面)：スマホ等の狭い画面だけ zoom で全体を縮小（印刷は解除）
+      page.style.zoom = '';
       var avail = document.documentElement.clientWidth;
       var pw = page.offsetWidth || 794;
-      var scale = avail / pw;
-      page.style.transformOrigin = 'top left';
-      page.style.transform = 'scale(' + scale + ')';
-      document.body.style.height = (page.offsetHeight * scale) + 'px';
+      if (avail < pw) page.style.zoom = avail / pw;
     }
+    window.addEventListener('beforeprint', function () { if (!embedded) page.style.zoom = ''; });
+    window.addEventListener('afterprint', fit);
     window.addEventListener('load', fit);
     window.addEventListener('resize', fit);
     fit();

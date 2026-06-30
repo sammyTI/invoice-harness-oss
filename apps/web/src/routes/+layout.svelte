@@ -142,7 +142,9 @@
     top: 0;
     left: 0;
     height: 100vh;
+    height: 100dvh; /* モバイルのアドレスバー込みで切れないよう実ビューポート高に */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding-bottom: 30px;
     z-index: 30;
   }
@@ -213,7 +215,7 @@
     .shell { display: block; }
     .sidebar {
       position: fixed; top: 0; left: 0; z-index: 50;
-      width: 264px; max-width: 84vw; height: 100vh;
+      width: 264px; max-width: 84vw; height: 100vh; height: 100dvh;
       transform: translateX(-100%);
       transition: transform .22s ease;
       box-shadow: var(--shadow-pop);
