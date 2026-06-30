@@ -50,20 +50,31 @@ function readableInk(hex: string): string {
 const STYLES = `
   *{box-sizing:border-box;}
   body{font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;color:#222;background:#e9eaec;margin:0;line-height:1.6;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .page{width:210mm;min-height:297mm;margin:20px auto;padding:18mm 16mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.1);position:relative;}
-  .page.landscape{width:297mm;min-height:210mm;padding:16mm 18mm;}
-  @media print{body{background:#fff;}.page{box-shadow:none;margin:0;}.no-print{display:none!important;}}
+  .page{width:210mm;min-height:297mm;margin:20px auto;padding:12mm 16mm 16mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.1);position:relative;}
+  .page.landscape{width:297mm;min-height:210mm;padding:12mm 18mm 16mm;}
+  @media print{
+    body{background:#fff;}
+    .page{box-shadow:none;margin:0;}
+    .no-print{display:none!important;}
+    /* 複数ページにまたがる場合：明細ヘッダを各ページ先頭に繰り返し、行・合計の途中改ページを防ぐ */
+    table.items{page-break-inside:auto;}
+    table.items thead{display:table-header-group;}
+    table.items tr{page-break-inside:avoid;break-inside:avoid;}
+    .amount-box,.bottom,.notes,table.sum,.issuer{page-break-inside:avoid;break-inside:avoid;}
+  }
   .toolbar{position:sticky;top:0;z-index:50;background:#222;color:#fff;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;}
   .toolbar button{background:#444;color:#fff;border:1px solid #666;padding:6px 16px;border-radius:5px;cursor:pointer;}
-  .title{text-align:center;font-size:28px;font-weight:700;letter-spacing:.4em;margin:0 0 26px;padding-left:.4em;}
-  .title-underline{border-bottom:2.5px solid var(--accent);width:220px;margin:-18px auto 26px;}
-  .top{display:flex;justify-content:space-between;gap:30px;margin-bottom:18px;}
-  .client{flex:1;}
-  .client .cname{font-size:18px;font-weight:700;border-bottom:1.5px solid #222;padding-bottom:5px;display:inline-block;min-width:55%;}
-  .client .caddr{font-size:11px;color:#555;margin-top:6px;line-height:1.7;}
-  .docmeta{font-size:11px;color:#555;text-align:right;line-height:1.9;min-width:180px;}
+  .title{text-align:center;font-size:28px;font-weight:700;letter-spacing:.4em;margin:0 0 22px;padding-left:.4em;}
+  .title-underline{border-bottom:2.5px solid var(--accent);width:220px;margin:-16px auto 24px;}
+  .top{display:flex;justify-content:space-between;gap:24px;margin-bottom:18px;align-items:flex-start;}
+  .client{flex:1 1 auto;min-width:0;}
+  .client .cname{font-size:18px;font-weight:700;border-bottom:1.5px solid #222;padding-bottom:5px;display:inline-block;max-width:100%;}
+  .client .caddr{font-size:11px;color:#555;margin-top:6px;line-height:1.7;overflow-wrap:break-word;}
+  /* 右列（番号・発行元）は固定幅にして、長い住所が宛名側を圧迫しないようにする */
+  .meta-col{flex:0 0 62mm;max-width:62mm;}
+  .docmeta{font-size:11px;color:#555;text-align:right;line-height:1.9;}
   .docmeta b{color:#222;}
-  .issuer{margin-top:10px;font-size:11px;color:#444;text-align:right;line-height:1.75;}
+  .issuer{margin-top:10px;font-size:11px;color:#444;text-align:right;line-height:1.75;overflow-wrap:break-word;word-break:break-word;}
   .issuer .iname{font-size:14px;font-weight:700;color:#222;}
   .issuer .reg{font-weight:600;}
   .issuer .warn{color:#c0392b;}
@@ -316,7 +327,7 @@ export function renderDocument(input: RenderInput): string {
         ${client.address ? `〒${esc(client.postal_code)}　${esc(client.address)}` : ""}
       </div>
     </div>
-    <div>
+    <div class="meta-col">
       <div class="docmeta">
         <div>${esc(title)}番号：<b>${esc(doc.number)}</b></div>
         <div>発行日：<b>${fmt(doc.issue_date)}</b></div>
