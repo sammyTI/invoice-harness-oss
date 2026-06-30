@@ -121,12 +121,19 @@ const STYLES = `
   .logo-img img{max-width:160px;max-height:46px;object-fit:contain;}
 `;
 
-function shell(title: string, number: string, accent: string, inner: string, landscape = false): string {
+// PDF保存名（ブラウザの「PDFに保存」が <title> をファイル名に使う）。
+// 形式: 【請求書】会社名御中_発行年月日_管理番号
+function pdfTitle(typeTitle: string, clientName: string, honorific: string, issueDate: string, number: string): string {
+  const date = (issueDate || "").replace(/-/g, "");
+  return `【${typeTitle}】${clientName}${honorific || ""}_${date}_${number}`;
+}
+
+function shell(title: string, number: string, accent: string, inner: string, landscape = false, fileTitle?: string): string {
   const pageRule = landscape ? `<style>@media print{@page{size:A4 landscape;margin:0;}}</style>` : "";
   return `<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(title)} ｜ ${esc(number)}</title>
+<title>${esc(fileTitle ?? `${title} ｜ ${number}`)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>${STYLES}</style>
 <style>:root{--accent:${esc(accent)};--accent-ink:${readableInk(accent)};}</style>${pageRule}</head>
@@ -215,7 +222,14 @@ function renderReceipt(input: RenderInput): string {
     </div>
   </div>
 </div>`;
-  return shell("領収書", doc.number, settings.accent_color || "#1b59b0", inner, true);
+  return shell(
+    "領収書",
+    doc.number,
+    settings.accent_color || "#1b59b0",
+    inner,
+    true,
+    pdfTitle("領収書", client.name, client.honorific, doc.issue_date, doc.number)
+  );
 }
 
 export function renderDocument(input: RenderInput): string {
@@ -316,7 +330,7 @@ export function renderDocument(input: RenderInput): string {
   return `<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(title)} ｜ ${esc(doc.number)}</title>
+<title>${esc(pdfTitle(title, client.name, client.honorific, doc.issue_date, doc.number))}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>${STYLES}</style>
 <style>:root{--accent:${esc(settings.accent_color || "#1b59b0")};--accent-ink:${readableInk(settings.accent_color || "#1b59b0")};}</style></head>
