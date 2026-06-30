@@ -22,19 +22,24 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   // 決算月の決定:
   //  - 会社を選択 → その会社の決算月（未設定なら全体設定）
   //  - 未選択で会社が1社のみ → その会社の決算月
-  //  - 未選択で複数社（合算） → 暦年(1〜12月)。会社ごとに決算月が違うため年度を揃えられないので暦年で集計
+  //  - 未選択で複数社（合算） → 既定は暦年(1〜12月)。会社ごとに決算月が違うため年度を揃えられないので暦年
+  // ?mode=fiscal|calendar で手動切替（トグルボタン）。指定が無ければ上記の自動判定。
   const selected = issuerId ? issuers.find((i) => i.id === issuerId) : null;
-  const calendarMode = !issuerId && issuers.length > 1;
-  const effFiscalMonth = calendarMode
-    ? 12
-    : (selected?.fiscal_month ?? (issuers.length === 1 ? issuers[0]?.fiscal_month : null) ?? settings.fiscal_month);
+  const autoCalendar = !issuerId && issuers.length > 1;
+  const modeParam = url.searchParams.get("mode");
+  const calendarMode = modeParam === "calendar" ? true : modeParam === "fiscal" ? false : autoCalendar;
+  // 決算表示で使う決算月（会社選択時はその会社、合算時は全体設定）。
+  const fiscalMonthFor = selected?.fiscal_month ?? (issuers.length === 1 ? issuers[0]?.fiscal_month : null) ?? settings.fiscal_month;
+  const effFiscalMonth = calendarMode ? 12 : fiscalMonthFor;
 
   const today = new Date().toISOString().slice(0, 10);
   const fyParam = Number(url.searchParams.get("fy"));
   const current = fiscalYearForDate(today, effFiscalMonth);
   const endYear = Number.isFinite(fyParam) && fyParam > 0 ? fyParam : current.endYear;
   const fy = fiscalYearByEndYear(endYear, effFiscalMonth);
-  const periodLabel = calendarMode ? `${fy.endYear}年（暦年・全社合算）` : fy.label;
+  const periodLabel = calendarMode
+    ? `${fy.endYear}年（年間）${!issuerId && issuers.length > 1 ? "・全社合算" : ""}`
+    : fy.label;
 
   // 取消（無効化）は売上・費用の集計から除外（最近の帳票一覧には表示される）
   const inFy = docs.filter((d) => d.issue_date >= fy.start && d.issue_date <= fy.end && d.status !== "canceled");

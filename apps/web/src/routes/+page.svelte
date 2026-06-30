@@ -3,22 +3,28 @@
   export let data;
   const pct = (v) => Math.round((v / data.maxMonthly) * 100);
   $: issQ = data.issuerId ? `&iss=${data.issuerId}` : "";
+  $: modeQ = `&mode=${data.calendarMode ? "calendar" : "fiscal"}`;
+  // 切替は現在期(fy)を引き継がず、新表示の今期に着地させる
+  $: toggleHref = `/?mode=${data.calendarMode ? "fiscal" : "calendar"}${issQ}`;
 </script>
 
 <div class="page-head">
   <h1 class="page-title">収支一覧<span class="tag">{data.fyLabel}</span></h1>
   <div class="fynav">
-    <a class="btn btn-quiet btn-sm" href={`/?fy=${data.prevFy}${issQ}`}>← 前期</a>
-    {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/?${issQ.slice(1)}`}>今期</a>{/if}
-    <a class="btn btn-quiet btn-sm" href={`/?fy=${data.nextFy}${issQ}`}>次期 →</a>
+    <a class="btn btn-ghost btn-sm toggle" href={toggleHref} title="決算表示／年間表示を切替">
+      {data.calendarMode ? "決算表示に切替" : "年間表示に切替"}
+    </a>
+    <a class="btn btn-quiet btn-sm" href={`/?fy=${data.prevFy}${issQ}${modeQ}`}>← {data.calendarMode ? "前年" : "前期"}</a>
+    {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/?${(issQ + modeQ).slice(1)}`}>{data.calendarMode ? "本年" : "今期"}</a>{/if}
+    <a class="btn btn-quiet btn-sm" href={`/?fy=${data.nextFy}${issQ}${modeQ}`}>{data.calendarMode ? "翌年" : "次期"} →</a>
   </div>
 </div>
 
 {#if data.multiCompany}
   <div class="companynav">
-    <a class="cbtn" class:active={!data.issuerId} href={`/?fy=${data.fyEndYear}`}>全社合算</a>
+    <a class="cbtn" class:active={!data.issuerId} href={`/?fy=${data.fyEndYear}${modeQ}`}>全社合算</a>
     {#each data.issuers as iss}
-      <a class="cbtn" class:active={data.issuerId === iss.id} href={`/?fy=${data.fyEndYear}&iss=${iss.id}`}>{iss.name}</a>
+      <a class="cbtn" class:active={data.issuerId === iss.id} href={`/?fy=${data.fyEndYear}&iss=${iss.id}${modeQ}`}>{iss.name}</a>
     {/each}
   </div>
 {/if}
@@ -112,7 +118,8 @@
 {/if}
 
 <style>
-  .fynav { display: flex; gap: 8px; align-items: center; }
+  .fynav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fynav .toggle { border-color: var(--primary); color: var(--primary-d); font-weight: 700; }
   .companynav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
   .cbtn { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 700; text-decoration: none; }
   .cbtn:hover { border-color: var(--primary); color: var(--primary-d); }
