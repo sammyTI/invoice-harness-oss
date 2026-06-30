@@ -214,6 +214,12 @@ input[type="date"].input { appearance: none; -webkit-appearance: none; }
 .flash-ok { background: var(--green-soft); color: #136c41; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
 .flash-err { background: var(--red-soft); color: #a52f2f; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
 
+/* グリッドの子を min-width:0 にして、内部のテーブル/入力/長い値(min-width)が
+   列を min-content まで押し広げて右に見切れるのを防ぐ。
+   モバイルで grid-template-columns:1fr に畳む各ページ共通の対策。 */
+.layout, .grid, .grid2, .kpis, .cards, .row { min-width: 0; }
+.layout > *, .grid > *, .grid2 > *, .kpis > *, .cards > *, .row > * { min-width: 0; }
+
 /* ---- モバイル: flex操作行の折り返し（右見切れの横断対策） ---- */
 @media (max-width: 640px) {
   .searchbar,
