@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { createClient, getDB, listClients } from "$lib/server/db";
+import { createClient, getDB, listClients, resolveClientCategoryNames, setClientCategories } from "$lib/server/db";
 
 export const GET: RequestHandler = async ({ platform }) => {
   const db = getDB(platform);
@@ -12,6 +12,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
   const db = getDB(platform);
   const b = (await request.json().catch(() => ({}))) as {
     name?: string; honorific?: string; contact?: string; postal_code?: string; address?: string; email?: string;
+    category_names?: string[];
   };
   const name = (b.name ?? "").trim();
   if (!name) return json({ error: "name is required" }, { status: 400 });
@@ -23,5 +24,8 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     address: b.address?.trim() || null,
     email: b.email?.trim() || null,
   });
+  if (b.category_names?.length) {
+    await setClientCategories(db, id, await resolveClientCategoryNames(db, b.category_names));
+  }
   return json({ id, ok: true });
 };

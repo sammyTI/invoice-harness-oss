@@ -183,6 +183,21 @@ export async function setClientCategories(db: D1Database, clientId: string, cate
   await db.batch(stmts);
 }
 
+// 区分名の配列 → id配列。存在しない名前は新規作成する（AI操作で「VIPにして」を許容）。
+export async function resolveClientCategoryNames(db: D1Database, names: string[]): Promise<string[]> {
+  const clean = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  if (clean.length === 0) return [];
+  const existing = await listClientCategories(db);
+  const byName = new Map(existing.map((c) => [c.name, c.id]));
+  const ids: string[] = [];
+  for (const name of clean) {
+    let id = byName.get(name);
+    if (!id) id = await createClientCategory(db, name);
+    ids.push(id);
+  }
+  return ids;
+}
+
 // 一覧表示用: client_id -> 区分名の配列
 export async function clientCategoryNameMap(db: D1Database): Promise<Record<string, string[]>> {
   const { results } = await db

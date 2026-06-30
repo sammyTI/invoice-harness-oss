@@ -138,7 +138,7 @@ server.tool(
 
 server.tool(
   "create_client",
-  "取引先を新規登録。会社名は必須。",
+  "取引先を新規登録。会社名は必須。category_names で顧客区分タグを付与（無ければ自動作成）。",
   {
     name: z.string(),
     honorific: z.string().optional().describe("敬称（既定 御中）"),
@@ -146,6 +146,7 @@ server.tool(
     postal_code: z.string().optional(),
     address: z.string().optional(),
     email: z.string().optional(),
+    category_names: z.array(z.string()).optional().describe("顧客区分（VIP/代理店 等。複数可）"),
   },
   async (body) => ok(await api(`/api/clients`, { method: "POST", body: JSON.stringify(body) }))
 );
@@ -186,6 +187,52 @@ server.tool(
 server.tool("delete_item", "品目を削除。", { id: z.string() }, async ({ id }) => ok(await api(`/api/items/${id}`, { method: "DELETE" })));
 
 server.tool("delete_division", "計上区分（部門）を削除（帳票は残り割当が外れる）。", { id: z.string() }, async ({ id }) => ok(await api(`/api/divisions/${id}`, { method: "DELETE" })));
+
+// ---------- 顧客区分（取引先タグ） ----------
+server.tool("list_client_categories", "顧客区分マスタの一覧を取得。", {}, async () => ok(await api(`/api/client-categories`)));
+
+server.tool(
+  "create_client_category",
+  "顧客区分（VIP・代理店・製造業 等）をマスタに新規登録。",
+  { name: z.string() },
+  async (body) => ok(await api(`/api/client-categories`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "delete_client_category",
+  "顧客区分を削除（各取引先からも外れる）。id は list_client_categories で取得。",
+  { id: z.string() },
+  async ({ id }) => ok(await api(`/api/client-categories/${id}`, { method: "DELETE" }))
+);
+
+server.tool(
+  "set_client_categories",
+  "取引先に顧客区分を設定（丸ごと置き換え）。会社名と区分名で指定でき、区分が無ければ自動作成。空配列で全解除。",
+  { client_name: z.string(), category_names: z.array(z.string()).describe("付与する区分名（複数可）") },
+  async ({ client_name, category_names }) => {
+    const list = (await api(`/api/clients`)) as { clients?: { id: string; name: string }[] };
+    const hit = (list.clients ?? []).find((c) => c.name === client_name);
+    if (!hit) return ok({ error: `client not found: ${client_name}` });
+    return ok(await api(`/api/clients/${hit.id}/categories`, { method: "PUT", body: JSON.stringify({ category_names }) }));
+  }
+);
+
+// ---------- 備考テンプレート ----------
+server.tool("list_note_templates", "備考テンプレートの一覧を取得。", {}, async () => ok(await api(`/api/note-templates`)));
+
+server.tool(
+  "create_note_template",
+  "備考テンプレートを新規登録（請求書等の備考に挿入できる定型文）。",
+  { name: z.string(), body: z.string().describe("テンプレ本文（例: お振込み手数料は御社にてご負担ください。）") },
+  async (body) => ok(await api(`/api/note-templates`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool("delete_note_template", "備考テンプレートを削除。id は list_note_templates で取得。", { id: z.string() }, async ({ id }) => ok(await api(`/api/note-templates/${id}`, { method: "DELETE" })));
+
+server.tool("set_default_note_template", "この備考テンプレートを既定（新規帳票に自動挿入）にする。", { id: z.string() }, async ({ id }) => ok(await api(`/api/note-templates/${id}`, { method: "POST" })));
+
+// ---------- 帳票の複製 ----------
+server.tool("duplicate_document", "帳票を複製（同種別・新番号・下書き）。id は list_documents で取得。新IDを返す。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}/duplicate`, { method: "POST" })));
 
 server.tool("delete_document", "帳票を削除（下書きのみ。発行済みは cancel_document を使う）。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}`, { method: "DELETE" })));
 
