@@ -148,20 +148,21 @@ step("本番 D1 にマイグレーションを適用します");
 run(wr(`d1 migrations apply ${d1Name} --remote`));
 ok("適用完了");
 
-// ---- Pages デプロイ ----
-step("ダッシュボード（Pages）をデプロイします");
-let url = `https://${pagesProject}.pages.dev`;
+// ---- Pages プロジェクト作成（無いと deploy が対話を要求して失敗するため先に作る） ----
+step(`Pages プロジェクト「${pagesProject}」を用意します`);
 try {
-  const out = capture(`pnpm --filter @invoice-harness/web exec wrangler pages deploy .svelte-kit/cloudflare --project-name ${pagesProject}`);
-  console.log(out);
-  const m = out.match(/https:\/\/[a-z0-9-]+\.pages\.dev/i);
-  if (m) console.log("");
+  capture(wr(`pages project create ${pagesProject} --production-branch main`));
+  ok("作成しました");
 } catch (e) {
-  // 初回はプロジェクト未作成で対話が要る場合がある
-  console.error(String(e.stdout || "") + String(e.stderr || ""));
-  warn("Pages デプロイで停止しました。もう一度 `pnpm run setup` を実行すると続きから進みます。");
-  process.exit(1);
+  const out = String(e.stdout || "") + String(e.stderr || "");
+  if (/already|exist/i.test(out)) warn("既存のプロジェクトを再利用します。");
+  else console.log(`  ${C.dim}(${out.split("\n").find((l) => l.trim()) || "skip"})${C.reset}`);
 }
+
+// ---- Pages デプロイ ----
+const url = `https://${pagesProject}.pages.dev`;
+step("ダッシュボード（Pages）をデプロイします");
+run(`pnpm --filter @invoice-harness/web exec wrangler pages deploy .svelte-kit/cloudflare --project-name ${pagesProject} --branch main --commit-dirty=true`);
 ok(`公開URL: ${url}`);
 
 // ---- Worker デプロイ ----
