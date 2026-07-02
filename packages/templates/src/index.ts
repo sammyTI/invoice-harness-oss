@@ -131,6 +131,13 @@ function pdfTitle(typeTitle: string, clientName: string, honorific: string, subj
   return `【${typeTitle}】${parts.join("_")}`;
 }
 
+// 担当者名に敬称（既定 様）を付ける。既に様/御中/殿/さん/先生 が付いていれば付けない。
+function withHonor(name: string | null | undefined, honor = "様"): string {
+  const t = (name || "").trim();
+  if (!t) return "";
+  return /(様|御中|殿|さん|先生)\s*$/.test(t) ? t : `${t} ${honor}`;
+}
+
 function shell(title: string, number: string, accent: string, inner: string, landscape = false, fileTitle?: string): string {
   const pageRule = landscape ? `<style>@media print{@page{size:A4 landscape;margin:0;}}</style>` : "";
   return `<!DOCTYPE html>
@@ -264,10 +271,13 @@ export function renderDocument(input: RenderInput): string {
   const intro = INTRO[doc.type] ?? "";
   const fmt = (d: string | null | undefined) => formatDate(d, settings.date_format);
 
+  // 取引日は「明細（内訳）の各行」に表示する（インボイス：取引年月日）。設定ONのとき列を追加。
+  const showTxn = settings.invoice_show_transaction_date;
   const rows = lines
     .map(
       (l) => `
       <tr>
+        ${showTxn ? `<td class="c">${fmt(l.txn_date || doc.issue_date)}</td>` : ""}
         <td>${esc(l.name)}${l.description ? `<div class="desc">${nl2br(l.description)}</div>` : ""}</td>
         <td class="c">${l.quantity}</td>
         <td class="c">${esc(l.unit)}</td>
@@ -283,7 +293,7 @@ export function renderDocument(input: RenderInput): string {
   const fillers = Array.from({ length: fillerCount })
     .map(
       () =>
-        `<tr><td>&nbsp;</td><td class="c"></td><td class="c"></td><td class="r"></td><td class="c"></td><td class="r"></td></tr>`
+        `<tr>${showTxn ? `<td class="c"></td>` : ""}<td>&nbsp;</td><td class="c"></td><td class="c"></td><td class="r"></td><td class="c"></td><td class="r"></td></tr>`
     )
     .join("");
 
@@ -323,11 +333,6 @@ export function renderDocument(input: RenderInput): string {
       }</div>`
     : "";
 
-  const txnRow =
-    doc.type === "invoice" && settings.invoice_show_transaction_date
-      ? `<div>取引日：<b>${fmt(doc.issue_date)}</b></div>`
-      : "";
-
   const dueRow = doc.due_date ? `<div>お支払期限：<b>${fmt(doc.due_date)}</b></div>` : "";
 
   return `<!DOCTYPE html>
@@ -351,7 +356,7 @@ export function renderDocument(input: RenderInput): string {
       <div class="client">
         <div class="cname">${esc(client.name)} ${esc(client.honorific)}</div>
         <div class="caddr">
-          ${client.contact ? `${esc(client.contact)}<br>` : ""}
+          ${client.contact ? `<div class="ccontact">${esc(withHonor(client.contact))}</div>` : ""}
           ${client.address ? `〒${esc(client.postal_code)}　${esc(client.address)}` : ""}
         </div>
       </div>
@@ -366,7 +371,6 @@ export function renderDocument(input: RenderInput): string {
       <div class="docmeta">
         <div>${esc(title)}番号：<b>${esc(doc.number)}</b></div>
         <div>発行日：<b>${fmt(doc.issue_date)}</b></div>
-        ${txnRow}
         ${dueRow}
       </div>
       <div class="issuer">
@@ -384,12 +388,13 @@ export function renderDocument(input: RenderInput): string {
   <table class="items">
     <thead>
       <tr>
-        <th style="width:42%">品目</th>
-        <th style="width:9%">数量</th>
-        <th style="width:9%">単位</th>
-        <th style="width:16%">単価</th>
+        ${showTxn ? `<th style="width:13%">取引日</th>` : ""}
+        <th style="width:${showTxn ? "31%" : "42%"}">品目</th>
+        <th style="width:8%">数量</th>
+        <th style="width:8%">単位</th>
+        <th style="width:15%">単価</th>
         <th style="width:8%">税率</th>
-        <th style="width:16%">${amountHeader}</th>
+        <th style="width:${showTxn ? "17%" : "16%"}">${amountHeader}</th>
       </tr>
     </thead>
     <tbody>${rows}${fillers}</tbody>

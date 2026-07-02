@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, getDB, getDefaultNoteBody, getDocDefaultNotes, listClients, listDivisions, listItems, listIssuers, listNoteTemplates } from "$lib/server/db";
+import { createDocument, getDB, getDefaultNoteBody, getDocDefaultNotes, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
@@ -33,6 +33,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     // 種別ごとの既定備考があれば優先、なければ「既定」備考テンプレートを初期表示
     defaultNotes: (await getDocDefaultNotes(db, type)) || (await getDefaultNoteBody(db)),
     noteTemplates: await listNoteTemplates(db),
+    showTxn: (await getSettings(db)).invoice_show_transaction_date,
   };
 };
 
@@ -81,6 +82,7 @@ export const actions: Actions = {
     const units = fd.getAll("line_unit").map((v) => String(v));
     const prices = fd.getAll("line_price").map((v) => Number(v) || 0);
     const rates = fd.getAll("line_rate").map((v) => Number(v) || 10);
+    const txnDates = fd.getAll("line_txn_date").map((v) => String(v).trim() || null);
 
     const lines = names
       .map((n, i) => ({
@@ -89,6 +91,7 @@ export const actions: Actions = {
         unit: units[i] || "式",
         unit_price: prices[i] ?? 0,
         tax_rate: rates[i] ?? 10,
+        txn_date: txnDates[i] ?? null,
       }))
       .filter((l) => l.name.trim() !== "");
 

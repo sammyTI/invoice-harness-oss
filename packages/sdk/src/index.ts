@@ -22,6 +22,8 @@ export interface LineInput {
   unit?: string;
   unit_price?: number;
   tax_rate?: number;
+  /** 取引年月日 YYYY-MM-DD（インボイス・明細ごと）。 */
+  txn_date?: string;
 }
 
 export interface CreateDocumentInput {

@@ -15,11 +15,11 @@
   });
 
   let lines = [
-    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "" },
-    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "" },
-    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "" },
+    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "", txnDate: "" },
+    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "", txnDate: "" },
+    { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "", txnDate: "" },
   ];
-  function addLine() { lines = [...lines, { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "" }]; }
+  function addLine() { lines = [...lines, { name: "", qty: 1, unit: "式", price: 0, rate: 10, priceStr: "", txnDate: "" }]; }
   function removeLine(i) { lines = lines.filter((_, idx) => idx !== i); }
   // 単価は割引(マイナス)も入力可。入力中は自由、フォーカスを外すと3桁区切りに整形。送信は hidden の生数値。
   function parsePrice(s) {
@@ -113,10 +113,11 @@
 
   <section class="section">
     <div class="section-head"><h2>明細</h2><button type="button" class="btn btn-quiet btn-sm" on:click={addLine}>＋ 明細を追加</button></div>
-    <div class="litems">
-      <div class="lihead"><span>品目</span><span>数量</span><span>単位</span><span>単価</span><span>税率</span><span></span></div>
+    <div class="litems" class:withtxn={data.showTxn}>
+      <div class="lihead">{#if data.showTxn}<span>取引日</span>{/if}<span>品目</span><span>数量</span><span>単位</span><span>単価</span><span>税率</span><span></span></div>
       {#each lines as line, i}
         <div class="litem">
+          {#if data.showTxn}<label class="f txn"><span class="flab">取引日</span><input class="input" type="date" name="line_txn_date" bind:value={line.txnDate} /></label>{/if}
           <label class="f name"><span class="flab">品目</span><input class="input" name="line_name" list="itemlist" bind:value={line.name} on:change={() => fillFromItem(i)} placeholder="品目名" /></label>
           <label class="f qty"><span class="flab">数量</span><input class="input r" name="line_qty" type="number" step="any" bind:value={line.qty} /></label>
           <label class="f unit"><span class="flab">単位</span><input class="input" name="line_unit" bind:value={line.unit} /></label>
@@ -159,6 +160,7 @@
   /* 明細エディタ（デスクトップ=表組み風 / モバイル=カード積み） */
   .litems { display: flex; flex-direction: column; gap: 6px; }
   .lihead, .litem { display: grid; grid-template-columns: 1fr 84px 76px 120px 88px 36px; gap: 8px; align-items: center; }
+  .litems.withtxn .lihead, .litems.withtxn .litem { grid-template-columns: 140px 1fr 66px 62px 110px 74px 32px; }
   .lihead { font-size: 12px; color: var(--muted); font-weight: 700; padding: 0 2px; }
   .litem .f { display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .flab { display: none; }

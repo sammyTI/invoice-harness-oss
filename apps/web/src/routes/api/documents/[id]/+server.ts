@@ -16,11 +16,11 @@ export const PUT: RequestHandler = async ({ platform, params, request }) => {
   if (!full) return json({ error: "not found" }, { status: 404 });
   const b = (await request.json().catch(() => ({}))) as {
     issue_date?: string; due_date?: string | null; subject?: string | null; notes?: string | null;
-    lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number }[];
+    lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number; txn_date?: string }[];
   };
   const lines = b.lines
-    ? b.lines.map((l) => ({ name: String(l.name ?? ""), quantity: Number(l.quantity ?? 1), unit: String(l.unit ?? "式"), unit_price: Number(l.unit_price ?? 0), tax_rate: Number(l.tax_rate ?? 10) })).filter((l) => l.name)
-    : full.lines.map((l) => ({ name: l.name, description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tax_rate: l.tax_rate }));
+    ? b.lines.map((l) => ({ name: String(l.name ?? ""), quantity: Number(l.quantity ?? 1), unit: String(l.unit ?? "式"), unit_price: Number(l.unit_price ?? 0), tax_rate: Number(l.tax_rate ?? 10), txn_date: l.txn_date ? String(l.txn_date).slice(0, 10) : null })).filter((l) => l.name)
+    : full.lines.map((l) => ({ name: l.name, description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tax_rate: l.tax_rate, txn_date: l.txn_date ?? null }));
   try {
     await updateDocument(db, params.id, {
       issuer_id: full.doc.issuer_id,

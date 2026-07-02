@@ -303,7 +303,7 @@ server.tool(
     notes: z.string().optional(),
     issue_date: z.string().optional(),
     due_date: z.string().optional(),
-    lines: z.array(z.object({ name: z.string(), quantity: z.number().optional(), unit: z.string().optional(), unit_price: z.number().optional(), tax_rate: z.number().optional() })).optional().describe("指定すると明細を丸ごと置き換え"),
+    lines: z.array(z.object({ name: z.string(), quantity: z.number().optional(), unit: z.string().optional(), unit_price: z.number().optional(), tax_rate: z.number().optional(), txn_date: z.string().optional() })).optional().describe("指定すると明細を丸ごと置き換え"),
   },
   async ({ id, ...body }) => ok(await api(`/api/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }))
 );
@@ -404,6 +404,7 @@ server.tool(
           unit: z.string().default("式"),
           unit_price: z.number(),
           tax_rate: z.number().default(10),
+          txn_date: z.string().optional().describe("取引年月日 YYYY-MM-DD（インボイス・明細ごと）"),
         })
       )
       .min(1),

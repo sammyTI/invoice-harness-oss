@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     subject?: string;
     notes?: string;
     issuer_person?: string;
-    lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number }[];
+    lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number; txn_date?: string }[];
   };
 
   const type = (body.type as DocumentType) ?? "invoice";
@@ -74,6 +74,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     unit: String(l.unit ?? "式"),
     unit_price: Number(l.unit_price ?? 0),
     tax_rate: Number(l.tax_rate ?? 10),
+    txn_date: l.txn_date ? String(l.txn_date).slice(0, 10) : null,
   })).filter((l) => l.name);
   if (!lines.length) return json({ error: "lines required" }, { status: 400 });
 

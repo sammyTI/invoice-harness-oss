@@ -112,6 +112,7 @@ export interface DocumentLine {
   unit_price: number;
   tax_rate: number;
   amount: number;
+  txn_date?: string | null;
 }
 
 export interface DocumentRecord {

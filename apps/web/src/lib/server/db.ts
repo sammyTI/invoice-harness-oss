@@ -994,6 +994,7 @@ export interface CreateLineInput {
   unit: string;
   unit_price: number;
   tax_rate: number;
+  txn_date?: string | null;
 }
 
 export interface CreateDocumentInput {
@@ -1071,8 +1072,8 @@ export async function createDocument(
       db
         .prepare(
           `INSERT INTO document_lines
-           (id, document_id, position, name, description, quantity, unit, unit_price, tax_rate, amount)
-           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+           (id, document_id, position, name, description, quantity, unit, unit_price, tax_rate, amount, txn_date)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`
         )
         .bind(
           crypto.randomUUID(),
@@ -1084,7 +1085,8 @@ export async function createDocument(
           l.unit,
           l.unit_price,
           l.tax_rate,
-          lineAmount(l.quantity, l.unit_price, settings.amount_rounding)
+          lineAmount(l.quantity, l.unit_price, settings.amount_rounding),
+          l.txn_date ?? null
         )
     );
   });
@@ -1157,8 +1159,8 @@ export async function updateDocument(
       db
         .prepare(
           `INSERT INTO document_lines
-           (id, document_id, position, name, description, quantity, unit, unit_price, tax_rate, amount)
-           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+           (id, document_id, position, name, description, quantity, unit, unit_price, tax_rate, amount, txn_date)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`
         )
         .bind(
           crypto.randomUUID(),
@@ -1170,7 +1172,8 @@ export async function updateDocument(
           l.unit,
           l.unit_price,
           l.tax_rate,
-          lineAmount(l.quantity, l.unit_price, settings.amount_rounding)
+          lineAmount(l.quantity, l.unit_price, settings.amount_rounding),
+          l.txn_date ?? null
         )
     );
   });
@@ -1187,6 +1190,7 @@ function linesOf(full: FullDocument): CreateLineInput[] {
     unit: l.unit,
     unit_price: l.unit_price,
     tax_rate: l.tax_rate,
+    txn_date: l.txn_date ?? null,
   }));
 }
 
