@@ -122,10 +122,13 @@ const STYLES = `
 `;
 
 // PDF保存名（ブラウザの「PDFに保存」が <title> をファイル名に使う）。
-// 形式: 【請求書】会社名御中_発行年月日_管理番号
-function pdfTitle(typeTitle: string, clientName: string, honorific: string, issueDate: string, number: string): string {
+// 形式: 【請求書】会社名御中_件名_発行年月日_管理番号（件名が空なら省略）
+function pdfTitle(typeTitle: string, clientName: string, honorific: string, subject: string | null | undefined, issueDate: string, number: string): string {
   const date = (issueDate || "").replace(/-/g, "");
-  return `【${typeTitle}】${clientName}${honorific || ""}_${date}_${number}`;
+  // ファイル名に使えない文字を除去（/ \ : * ? " < > | と改行）
+  const safe = (s: string) => (s || "").replace(/[\\/:*?"<>|\r\n]+/g, "").trim();
+  const parts = [`${safe(clientName)}${honorific || ""}`, safe(subject ?? ""), date, number].filter(Boolean);
+  return `【${typeTitle}】${parts.join("_")}`;
 }
 
 function shell(title: string, number: string, accent: string, inner: string, landscape = false, fileTitle?: string): string {
@@ -228,7 +231,7 @@ function renderReceipt(input: RenderInput): string {
     settings.accent_color || "#1b59b0",
     inner,
     true,
-    pdfTitle("領収書", client.name, client.honorific, doc.issue_date, doc.number)
+    pdfTitle("領収書", client.name, client.honorific, doc.subject, doc.issue_date, doc.number)
   );
 }
 
@@ -330,7 +333,7 @@ export function renderDocument(input: RenderInput): string {
   return `<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(pdfTitle(title, client.name, client.honorific, doc.issue_date, doc.number))}</title>
+<title>${esc(pdfTitle(title, client.name, client.honorific, doc.subject, doc.issue_date, doc.number))}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>${STYLES}</style>
 <style>:root{--accent:${esc(settings.accent_color || "#1b59b0")};--accent-ink:${readableInk(settings.accent_color || "#1b59b0")};}</style></head>
