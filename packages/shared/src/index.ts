@@ -288,7 +288,9 @@ export function computeTotals(lines: LineInput[], settings: Settings): Totals {
 }
 
 export function formatYen(value: number): string {
-  return "¥" + Math.trunc(value).toLocaleString("ja-JP");
+  const v = Math.trunc(value);
+  // 割引などの負数は「-¥100」と一般的な表記にする。
+  return (v < 0 ? "-¥" : "¥") + Math.abs(v).toLocaleString("ja-JP");
 }
 
 export function formatDate(value: string | null | undefined, fmt: DateFormat): string {
