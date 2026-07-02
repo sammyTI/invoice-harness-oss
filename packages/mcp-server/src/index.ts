@@ -449,13 +449,14 @@ server.tool(
 
 server.tool(
   "record_payment",
-  "請求書に入金を記録（部分入金可）。amount省略時は残額全額。reference に入金伝票番号・摘要を入れられる。",
+  "請求書に入金を記録（部分入金可）。amount=請求先が支払った額（残額に反映）。fee=クレカ/Square等の決済手数料（実入金=amount-fee）。amount省略時は残額全額。",
   {
     id: z.string(),
     amount: z.number().optional(),
     paid_date: z.string().optional(),
     method: z.string().optional(),
     reference: z.string().optional().describe("入金伝票番号・摘要（合算入金は同じ番号で各請求に）"),
+    fee: z.number().optional().describe("決済手数料（クレカ/Square。例: amountの3.6%）"),
   },
   async ({ id, ...body }) => ok(await api(`/api/documents/${id}/pay`, { method: "POST", body: JSON.stringify(body) }))
 );

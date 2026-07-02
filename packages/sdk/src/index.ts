@@ -48,6 +48,8 @@ export interface PaymentInput {
   paid_date?: string;
   method?: string;
   reference?: string;
+  /** 決済手数料（クレカ/Square 等。実入金 = amount - fee）。 */
+  fee?: number;
 }
 
 export interface IssuerInput {

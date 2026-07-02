@@ -294,14 +294,16 @@ export async function markPaid(
   amount: number,
   method: string | null,
   actor = "local",
-  reference: string | null = null
+  reference: string | null = null,
+  fee = 0
 ): Promise<void> {
   await db
-    .prepare("INSERT INTO payments (id, document_id, paid_date, amount, method, reference) VALUES (?1,?2,?3,?4,?5,?6)")
-    .bind(crypto.randomUUID(), id, paidDate, amount, method, reference)
+    .prepare("INSERT INTO payments (id, document_id, paid_date, amount, method, reference, fee) VALUES (?1,?2,?3,?4,?5,?6,?7)")
+    .bind(crypto.randomUUID(), id, paidDate, amount, method, reference, Math.max(0, Math.round(fee) || 0))
     .run();
   await recomputePaid(db, id);
-  await appendAudit(db, { actor, action: "pay", document_id: id, summary: `入金 ${amount} を記録` });
+  const feeNote = fee > 0 ? `（手数料 ${fee}／実入金 ${amount - fee}）` : "";
+  await appendAudit(db, { actor, action: "pay", document_id: id, summary: `入金 ${amount} を記録${feeNote}` });
 }
 
 export async function deletePayment(db: D1Database, paymentId: string, actor = "local"): Promise<void> {
@@ -921,6 +923,7 @@ export interface Payment {
   amount: number;
   method: string | null;
   reference: string | null;
+  fee: number;
 }
 
 export interface FullDocument {
@@ -937,7 +940,7 @@ export interface FullDocument {
 
 export async function listPayments(db: D1Database, docId: string): Promise<Payment[]> {
   const { results } = await db
-    .prepare("SELECT id,document_id,paid_date,amount,method,reference FROM payments WHERE document_id = ?1 ORDER BY paid_date, created_at")
+    .prepare("SELECT id,document_id,paid_date,amount,method,reference,fee FROM payments WHERE document_id = ?1 ORDER BY paid_date, created_at")
     .bind(docId)
     .all<Payment>();
   return results ?? [];

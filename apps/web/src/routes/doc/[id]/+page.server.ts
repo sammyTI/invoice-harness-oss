@@ -154,8 +154,9 @@ export const actions: Actions = {
     const amount = Number(fd.get("amount")) || full.totals.payable || full.totals.total;
     const method = String(fd.get("method") ?? "") || null;
     const reference = String(fd.get("reference") ?? "").trim() || null;
+    const fee = Math.max(0, Number(fd.get("fee")) || 0);
     if (amount <= 0) return fail(400, { error: "入金額が不正です。" });
-    await markPaid(db, params.id, paidDate, amount, method, getActor({ request, locals }), reference);
+    await markPaid(db, params.id, paidDate, amount, method, getActor({ request, locals }), reference, fee);
     return { paid: "ok" as const };
   },
 

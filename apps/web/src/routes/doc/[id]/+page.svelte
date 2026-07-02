@@ -15,6 +15,15 @@
   $: editHref = `/doc/${doc.id}/edit`;
   $: shareUrl = data.shareUrl;
 
+  // 入金フォーム（クレカ/Square 決済手数料に対応）
+  let payAmount = 0;
+  let payMethod = "銀行振込";
+  let payFee = 0;
+  $: if (balance !== undefined && !payAmount) payAmount = balance;
+  $: isCard = /カード|クレジット|square|スクエア/i.test(payMethod);
+  function autoFee() { payFee = Math.round((Number(payAmount) || 0) * 0.036); }
+  $: netReceived = (Number(payAmount) || 0) - (Number(payFee) || 0);
+
   let copied = false;
   async function copyShare() {
     if (!shareUrl) return;
@@ -132,6 +141,7 @@
               <li>
                 <span class="num">{p.paid_date ?? "—"}</span>
                 <span class="num amt">{formatYen(p.amount)}</span>
+                {#if p.fee}<span class="muted feenote">手数料 {formatYen(p.fee)} ／ 実入金 {formatYen(p.amount - p.fee)}</span>{/if}
                 <span class="muted">{p.method ?? ""}{p.reference ? ` / ${p.reference}` : ""}</span>
                 <form method="POST" action="?/delpay"><input type="hidden" name="payment_id" value={p.id} /><button class="x" type="submit" aria-label="取消">×</button></form>
               </li>
@@ -142,20 +152,28 @@
         {#if balance > 0}
           <form method="POST" action="?/pay" class="payform">
             <label>入金日<input class="input" type="date" name="paid_date" value={today} /></label>
-            <label>入金額<input class="input" type="number" name="amount" value={balance} /></label>
+            <label>入金額（請求額）<input class="input" type="number" name="amount" bind:value={payAmount} /></label>
             <label>方法
-              <select class="input" name="method">
+              <select class="input" name="method" bind:value={payMethod}>
                 <option value="銀行振込">銀行振込</option>
                 <option value="現金">現金</option>
+                <option value="クレジットカード（Square）">クレジットカード（Square）</option>
                 <option value="クレジットカード">クレジットカード</option>
                 <option value="口座振替">口座振替</option>
                 <option value="相殺">相殺</option>
                 <option value="その他">その他</option>
               </select>
             </label>
+            <label>決済手数料
+              <span class="feewrap">
+                <input class="input" type="number" name="fee" bind:value={payFee} />
+                <button type="button" class="btn btn-quiet btn-sm feebtn" on:click={autoFee} title="入金額の3.6%を計算">3.6%</button>
+              </span>
+            </label>
             <label>入金伝票番号 / 摘要<input class="input" name="reference" placeholder="振込番号・摘要（合算入金は同じ番号で各請求に）" /></label>
             <button class="btn btn-primary" type="submit">入金を記録</button>
           </form>
+          {#if payFee > 0}<p class="netnote">実入金（口座に入る額）：<b>{formatYen(netReceived)}</b>（請求額 {formatYen(payAmount)} − 手数料 {formatYen(payFee)}）</p>{/if}
         {:else}
           <p class="fullpaid">全額入金済み</p>
         {/if}
@@ -316,6 +334,12 @@
   .payform { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .payform label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
   .payform .input { width: 160px; }
+  .payform .feewrap { display: flex; gap: 6px; align-items: center; }
+  .payform .feewrap .input { width: 104px; }
+  .payform .feebtn { white-space: nowrap; padding: 6px 10px; }
+  .netnote { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
+  .netnote b { color: var(--primary-d); }
+  .paylist .feenote { flex: 1; }
   .paylist { list-style: none; margin: 0 0 12px; padding: 0; }
   .paylist li { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
   .paylist .amt { font-weight: 700; margin-left: auto; }
