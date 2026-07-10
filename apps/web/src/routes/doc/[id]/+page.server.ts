@@ -125,6 +125,14 @@ export const actions: Actions = {
     return { shared: "off" as const };
   },
 
+  // メール以外（郵送・手渡し・別ツール等）で送った場合に、手動で送付済みにする。
+  markSent: async ({ params, platform, request, locals }) => {
+    const db = getDB(platform);
+    await assertDocAccess(db, locals.user, params.id);
+    await markSent(db, params.id, new Date().toISOString(), getActor({ request, locals }));
+    return { sent: "manual" as const };
+  },
+
   send: async ({ params, platform, url, request, locals }) => {
     const db = getDB(platform);
     await assertDocAccess(db, locals.user, params.id);

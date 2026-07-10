@@ -78,9 +78,14 @@
       </form>
     {:else if !canceled}
       <span class="mailoff" title="メール送付には Resend 連携が必要です。設定 ▸ API/連携 から有効化できます。">
-        <button class="btn btn-ghost btn-sm" type="button" disabled>メール送付</button>
+        <button class="btn btn-ghost btn-sm mail-disabled" type="button" disabled>メール送付（未連携）</button>
         <a class="setup-link" href="/settings/api">設定</a>
       </span>
+    {/if}
+    {#if !canceled && doc.status !== "sent" && doc.status !== "paid"}
+      <form method="POST" action="?/markSent" on:submit={(e) => { if (!confirm("この帳票を送付済みにします（メール送付はしません。郵送・手渡し・別ツールで送った場合用）。よろしいですか？")) e.preventDefault(); }}>
+        <button class="btn btn-ghost btn-sm" type="submit" title="メールを送らずにステータスだけ送付済みにする">送付済みにする</button>
+      </form>
     {/if}
     {#if locked}
       <form method="POST" action="?/correct" on:submit={(e) => { if (!confirm(`発行済みは直接修正できません。内容をコピーした「訂正版」の下書きを新しく作成します（元帳票（${doc.number}）は記録として残ります）。よろしいですか？`)) e.preventDefault(); }}>
@@ -112,6 +117,7 @@
   <p class="banner issued">この帳票は<strong>発行済み</strong>（確定・訂正不可・改ざん検知の対象）です。{#if doc.status !== "sent" && doc.status !== "paid"}取引先へ送付できます。{/if} 修正が必要な場合は「<strong>訂正版を作成</strong>」または「<strong>取消</strong>」を使ってください。<span class="num hashnote">hash {doc.content_hash?.slice(0, 12)}…</span></p>
 {/if}
 {#if form?.locked === "ok"}<p class="flash-ok">発行（確定）しました。正式な書類として記録されました。</p>{/if}
+{#if form?.sent === "manual"}<p class="flash-ok">送付済みにしました（メールは送信していません）。</p>{/if}
 {#if form?.canceled === "ok"}<p class="flash-ok">取消しました。原本は記録として保持されます。</p>{/if}
 {#if form?.sent === "ok"}<p class="flash-ok">メールを送付しました。</p>{/if}
 {#if form?.sent === "marked"}<p class="flash-ok">送付済みにしました（{form.reason}）。メール設定後は自動送信されます。</p>{/if}
@@ -341,7 +347,7 @@
   .notes { white-space: pre-wrap; margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.7; }
 
   .mailoff { display: inline-flex; align-items: center; gap: 4px; }
-  .mailoff button[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .mailoff button[disabled] { opacity: 0.45; cursor: not-allowed; background: var(--surface-2); color: var(--muted); border-color: var(--line); }
   .mailoff .setup-link { font-size: 12px; color: var(--primary); }
   .flash-lock { background: var(--slate-soft); color: var(--ink-2); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; }
   .rel { list-style: none; margin: 0; padding: 0; }

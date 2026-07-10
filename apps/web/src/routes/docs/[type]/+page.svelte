@@ -13,8 +13,16 @@
     { key: "unpaid", label: "入金待ち", n: data.counts.unpaid },
     { key: "overdue", label: "入金期日超過", n: data.counts.overdue },
   ];
-  $: qs = data.q ? `&q=${encodeURIComponent(data.q)}` : "";
-  $: fhref = (k) => (k === "all" ? `/docs/${data.type}${data.q ? `?q=${encodeURIComponent(data.q)}` : ""}` : `/docs/${data.type}?view=${k}${qs}`);
+  // フィルター状態をリンク間で引き継ぐクエリ文字列（検索・部門・案件・期間）
+  $: qs = [
+    data.q ? `&q=${encodeURIComponent(data.q)}` : "",
+    data.div ? `&div=${data.div}` : "",
+    data.prj ? `&prj=${data.prj}` : "",
+    data.from ? `&from=${data.from}` : "",
+    data.to ? `&to=${data.to}` : "",
+  ].join("");
+  $: hasFilter = data.q || data.div || data.prj || data.from || data.to;
+  $: fhref = (k) => (k === "all" ? `/docs/${data.type}${qs ? `?${qs.slice(1)}` : ""}` : `/docs/${data.type}?view=${k}${qs}`);
   $: sortHref = (col) => {
     const dir = data.sort === col && data.dir === "asc" ? "desc" : "asc";
     return `/docs/${data.type}?view=${data.view}&sort=${col}&dir=${dir}${qs}`;
@@ -36,9 +44,26 @@
 
 <form class="searchbar" method="GET">
   <input type="hidden" name="view" value={data.view} />
-  <input class="input" name="q" value={data.q} placeholder="取引先名・番号で検索" />
-  <button class="btn btn-quiet btn-sm" type="submit">検索</button>
-  {#if data.q}<a class="btn btn-quiet btn-sm" href={`/docs/${data.type}`}>クリア</a>{/if}
+  <input class="input fq" name="q" value={data.q} placeholder="取引先名・番号で検索" />
+  {#if data.divisions.length}
+    <select class="input fsel" name="div">
+      <option value="">全部門</option>
+      {#each data.divisions as dv}<option value={dv.id} selected={dv.id === data.div}>{dv.name}</option>{/each}
+    </select>
+  {/if}
+  {#if data.projects.length}
+    <select class="input fsel" name="prj">
+      <option value="">全プロジェクト</option>
+      {#each data.projects as pr}<option value={pr.id} selected={pr.id === data.prj}>{pr.name}</option>{/each}
+    </select>
+  {/if}
+  <span class="frange">
+    <input class="input fdate" type="date" name="from" value={data.from} title="発行日 から" />
+    <span class="ftil">〜</span>
+    <input class="input fdate" type="date" name="to" value={data.to} title="発行日 まで" />
+  </span>
+  <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
+  {#if hasFilter}<a class="btn btn-quiet btn-sm" href={`/docs/${data.type}`}>クリア</a>{/if}
 </form>
 
 {#if form?.bulk}<p class="flash-ok">{form.bulk}</p>{/if}
@@ -80,7 +105,13 @@
               {#each data.documents as d}
                 <tr>
                   <td class="chk"><input type="checkbox" name="ids" value={d.id} /></td>
-                  <td><a class="cname" href={`/doc/${d.id}`}>{d.client_name}</a><div class="num muted docno">{d.number}</div></td>
+                  <td>
+                    <a class="cname" href={`/doc/${d.id}`}>{d.client_name}</a>
+                    <div class="num muted docno">{d.number}</div>
+                    {#if d.division_name || d.project_name}
+                      <div class="dmeta">{#if d.division_name}<span class="mchip">{d.division_name}</span>{/if}{#if d.project_name}<span class="mchip prj">{d.project_name}</span>{/if}</div>
+                    {/if}
+                  </td>
                   <td class="r num amt">{formatYen(d.total)}</td>
                   <td class="num">{d.issue_date}</td>
                   <td class="num" class:over={overdue(d)}>{d.due_date ?? "—"}</td>
@@ -104,8 +135,15 @@
 </div>
 
 <style>
-  .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; }
-  .searchbar .input { max-width: 320px; }
+  .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .searchbar .fq { max-width: 240px; }
+  .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }
+  .frange { display: flex; align-items: center; gap: 4px; }
+  .fdate { width: 140px; font-size: 13px; }
+  .ftil { color: var(--muted); }
+  .dmeta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+  .mchip { display: inline-block; background: var(--slate-soft); color: var(--ink-2); border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 700; }
+  .mchip.prj { background: var(--primary-soft); color: var(--primary-d); }
   .layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
   .filters { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px; }
