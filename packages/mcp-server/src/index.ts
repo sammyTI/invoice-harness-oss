@@ -287,6 +287,26 @@ server.tool(
   async ({ id }) => ok(await api(`/api/projects/${id}`, { method: "DELETE" }))
 );
 
+// ---------- 売上目標 ----------
+server.tool(
+  "list_targets",
+  "売上目標の一覧（会社・部門ごとの年間目標）。fiscal_year 省略時は今年度。",
+  { fiscal_year: z.number().optional().describe("決算年（例 2027 = 2027年◯月期）") },
+  async ({ fiscal_year }) => ok(await api(`/api/targets${fiscal_year ? `?fy=${fiscal_year}` : ""}`))
+);
+
+server.tool(
+  "set_target",
+  "売上目標を設定。会社名または部門名で指定（amount=0 で削除）。ダッシュボードに達成率が表示される。",
+  {
+    fiscal_year: z.number().optional().describe("決算年。省略時は今年度"),
+    company_name: z.string().optional().describe("会社の目標を設定する場合"),
+    division_name: z.string().optional().describe("部門の目標を設定する場合"),
+    amount: z.number().describe("年間売上目標（税込・円）"),
+  },
+  async (body) => ok(await api(`/api/targets`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
 // ---------- メンバー（チーム）管理 ----------
 server.tool("list_members", "メンバー一覧を取得（氏名・メール・権限・状態）。", {}, async () => ok(await api(`/api/members`)));
 

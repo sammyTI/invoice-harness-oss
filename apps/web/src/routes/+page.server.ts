@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
+import { getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -17,7 +17,14 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   // 会社（発行元）フィルタ。空＝（閲覧可能な）全社合算。
   const issParam = url.searchParams.get("iss") ?? "";
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
-  const docs = issuerId ? allDocs.filter((d) => d.issuer_id === issuerId) : allDocs;
+  const issuerDocs = issuerId ? allDocs.filter((d) => d.issuer_id === issuerId) : allDocs;
+
+  // 部門（計上区分）フィルタ。会社×部門で月次推移を見られる。
+  const allDivisions = await listDivisions(db);
+  const divChips = allDivisions.filter((d) => !d.issuer_id || !issuerId || d.issuer_id === issuerId);
+  const divParam = url.searchParams.get("div") ?? "";
+  const divisionId = divChips.some((d) => d.id === divParam) ? divParam : "";
+  const docs = divisionId ? issuerDocs.filter((d) => d.division_id === divisionId) : issuerDocs;
 
   // 決算月の決定:
   //  - 会社を選択 → その会社の決算月（未設定なら全体設定）
@@ -53,6 +60,17 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const unpaid = revenue - paid;
   const profit = revenue - expense;
 
+  // 売上目標と達成率（設定 ▸ 目標 で登録）。
+  //  - 部門選択中 → その部門の目標 ／ 会社選択中 → その会社の目標 ／ 全社合算 → 会社目標の合計
+  const targets = await listTargets(db, fy.endYear);
+  const companyTargets = new Map(targets.filter((t) => t.scope_type === "company").map((t) => [t.scope_id, t.amount]));
+  const divisionTargets = new Map(targets.filter((t) => t.scope_type === "division").map((t) => [t.scope_id, t.amount]));
+  let target = 0;
+  if (divisionId) target = divisionTargets.get(divisionId) ?? 0;
+  else if (issuerId) target = companyTargets.get(issuerId) ?? 0;
+  else target = issuers.reduce((a, i) => a + (companyTargets.get(i.id) ?? 0), 0);
+  const achievement = target > 0 ? Math.round((revenue / target) * 1000) / 10 : null;
+
   const months = fiscalMonths(fy).map((m) => {
     const rev = inFy
       .filter((d) => REVENUE_TYPES.has(d.type) && d.issue_date.startsWith(m.ym))
@@ -64,7 +82,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   });
   const maxMonthly = Math.max(1, ...months.map((m) => Math.max(m.revenue, m.expense)));
 
-  // 部門別（計上区分別）損益
+  // 部門別（計上区分別）損益 ＋ 部門目標と達成率
   const divMap = new Map<string, { name: string; revenue: number; expense: number }>();
   for (const d of inFy) {
     if (!REVENUE_TYPES.has(d.type) && !EXPENSE_TYPES.has(d.type)) continue;
@@ -74,12 +92,21 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     if (REVENUE_TYPES.has(d.type)) e.revenue += d.total;
     if (EXPENSE_TYPES.has(d.type)) e.expense += d.total;
   }
-  const divisions = [...divMap.values()]
-    .map((v) => ({ ...v, profit: v.revenue - v.expense }))
+  const divisions = [...divMap.entries()]
+    .map(([id, v]) => {
+      const t = divisionTargets.get(id) ?? 0;
+      return {
+        ...v,
+        profit: v.revenue - v.expense,
+        target: t,
+        achievement: t > 0 ? Math.round((v.revenue / t) * 1000) / 10 : null,
+      };
+    })
     .sort((a, b) => b.revenue - a.revenue || b.expense - a.expense);
   const divMax = Math.max(1, ...divisions.map((v) => Math.max(v.revenue, v.expense)));
   // 区分が1つも作られていない（全部「未設定」のみ）なら表示しない
   const hasDivisions = divisions.some((v) => v.name !== "未設定");
+  const hasDivTargets = divisions.some((v) => v.target > 0);
 
   return {
     fyLabel: periodLabel,
@@ -91,12 +118,17 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     issuers: issuers.map((i) => ({ id: i.id, name: i.name })),
     issuerId,
     multiCompany: issuers.length > 1,
+    divChips: divChips.map((d) => ({ id: d.id, name: d.name })),
+    divisionId,
     kpi: { revenue, expense, profit, paid, unpaid },
+    target,
+    achievement,
     months,
     maxMonthly,
     divisions,
     divMax,
     hasDivisions,
+    hasDivTargets,
     recent: docs.slice(0, 8),
   };
 };

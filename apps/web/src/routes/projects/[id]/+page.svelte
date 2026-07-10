@@ -76,12 +76,15 @@
 {:else}
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>種別</th><th>番号・件名</th><th class="r">金額(税込)</th><th>発行日</th><th>状態</th></tr></thead>
+      <thead><tr><th>種別</th><th>請求先・番号</th><th class="r">金額(税込)</th><th>発行日</th><th>状態</th></tr></thead>
       <tbody>
         {#each salesDocs as d}
           <tr>
             <td><span class="tchip">{DOCUMENT_SHORT[d.type]}</span></td>
-            <td><a href={`/doc/${d.id}`} class="dnum num">{d.number}</a></td>
+            <td>
+              <a href={`/doc/${d.id}`}><b>{d.client_name}</b></a>{#if d.client_name !== p.client_name}<span class="diffnote">（管理顧客と別）</span>{/if}
+              <div class="sub num">{d.number}</div>
+            </td>
             <td class="r num">{formatYen(d.total)}</td>
             <td class="num">{d.issue_date}</td>
             <td><span class="chip {lifecycle(d).cls}">{lifecycle(d).label}</span></td>
@@ -145,6 +148,7 @@
   .tchip { display: inline-grid; place-items: center; min-width: 30px; height: 22px; padding: 0 6px; border-radius: 6px; background: var(--slate-soft); color: var(--ink-2); font-size: 12px; font-weight: 700; }
   .dnum { font-weight: 700; }
   .sub { font-size: 11px; color: var(--muted); }
+  .diffnote { font-size: 11px; color: var(--amber); margin-left: 4px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   .grid2 > .field { min-width: 0; }
   @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }

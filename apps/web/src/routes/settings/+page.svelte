@@ -15,6 +15,7 @@
         { href: "/settings/issuer", label: "自社情報・振込先", desc: "発行元・発行者名・住所・振込先" },
         { href: "/settings/tax", label: "課税・表示項目設定", desc: "外税内税・源泉徴収・端数・日付形式" },
         { href: "/settings/divisions", label: "計上区分（部門）", desc: "会社ごとの部門・事業部" },
+        { href: "/settings/targets", label: "売上目標", desc: "会社・部門ごとの年間目標と達成率" },
       ],
     },
     {

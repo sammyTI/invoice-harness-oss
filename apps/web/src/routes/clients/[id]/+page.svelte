@@ -67,7 +67,10 @@
         {#each salesDocs as d}
           <tr>
             <td><span class="tchip">{DOCUMENT_SHORT[d.type]}</span></td>
-            <td><a href={`/doc/${d.id}`} class="dnum num">{d.number}</a></td>
+            <td>
+              <a href={`/doc/${d.id}`} class="dnum num">{d.number}</a>
+              {#if d.client_name !== c.name}<div class="sub">請求先: {d.client_name}</div>{/if}
+            </td>
             <td class="pcell">{d.project_name ?? "—"}</td>
             <td class="r num">{formatYen(d.total)}</td>
             <td class="num">{d.issue_date}</td>
@@ -90,7 +93,10 @@
         {#each costDocs as d}
           <tr>
             <td><span class="tchip">{DOCUMENT_SHORT[d.type]}</span></td>
-            <td><a href={`/doc/${d.id}`} class="dnum num">{d.number}</a></td>
+            <td>
+              <a href={`/doc/${d.id}`} class="dnum num">{d.number}</a>
+              {#if d.client_name !== c.name}<div class="sub">支払先: {d.client_name}</div>{/if}
+            </td>
             <td class="pcell">{d.project_name ?? "—"}</td>
             <td class="r num">{formatYen(d.total)}</td>
             <td class="num">{d.due_date ?? "—"}</td>
@@ -125,6 +131,7 @@
   .sub-head h2 { font-size: 16px; margin: 0; }
   .pname, .dnum { font-weight: 700; }
   .pcell { font-size: 13px; color: var(--ink-2); }
+  .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .profit { font-weight: 700; }
   .profit.neg { color: var(--red); }
   tr.done td { opacity: 0.65; }

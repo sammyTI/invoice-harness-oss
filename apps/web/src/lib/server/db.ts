@@ -322,15 +322,51 @@ export async function assignDocumentProject(db: D1Database, docId: string, proje
   await db.prepare("UPDATE documents SET project_id = ?2 WHERE id = ?1").bind(docId, projectId).run();
 }
 
-/** 顧客単位の収支（全帳票横断。取消除く・税込）。 */
+// ---------- 売上目標（年度・会社/部門ごと） ----------
+
+export interface TargetRow {
+  fiscal_year: number;
+  scope_type: string; // company | division
+  scope_id: string;
+  amount: number;
+}
+
+export async function listTargets(db: D1Database, fiscalYear: number): Promise<TargetRow[]> {
+  const { results } = await db
+    .prepare("SELECT fiscal_year, scope_type, scope_id, amount FROM targets WHERE fiscal_year = ?1")
+    .bind(fiscalYear)
+    .all<TargetRow>();
+  return results ?? [];
+}
+
+export async function setTarget(db: D1Database, fiscalYear: number, scopeType: "company" | "division", scopeId: string, amount: number): Promise<void> {
+  if (amount > 0) {
+    await db
+      .prepare(
+        `INSERT INTO targets (fiscal_year, scope_type, scope_id, amount) VALUES (?1,?2,?3,?4)
+         ON CONFLICT(fiscal_year, scope_type, scope_id) DO UPDATE SET amount = ?4`
+      )
+      .bind(fiscalYear, scopeType, scopeId, Math.round(amount))
+      .run();
+  } else {
+    // 0 or negative = 目標を消す
+    await db
+      .prepare("DELETE FROM targets WHERE fiscal_year = ?1 AND scope_type = ?2 AND scope_id = ?3")
+      .bind(fiscalYear, scopeType, scopeId)
+      .run();
+  }
+}
+
+/** 顧客単位の収支（管理上の顧客ベース＝直接この顧客宛の帳票＋この顧客のプロジェクトに紐づく帳票。取消除く・税込）。 */
 export async function clientFinancials(db: D1Database, clientId: string): Promise<{ revenue: number; expense: number; profit: number; unpaid: number }> {
   const row = await db
     .prepare(
       `SELECT
-        COALESCE(SUM(CASE WHEN type='invoice' AND status != 'canceled' THEN total END),0) AS revenue,
-        COALESCE(SUM(CASE WHEN type IN ('order','payment_notice') AND status != 'canceled' THEN total END),0) AS expense,
-        COALESCE(SUM(CASE WHEN type='invoice' AND status NOT IN ('canceled','paid') THEN total END),0) AS unpaid
-      FROM documents WHERE client_id = ?1`
+        COALESCE(SUM(CASE WHEN d.type='invoice' AND d.status != 'canceled' THEN d.total END),0) AS revenue,
+        COALESCE(SUM(CASE WHEN d.type IN ('order','payment_notice') AND d.status != 'canceled' THEN d.total END),0) AS expense,
+        COALESCE(SUM(CASE WHEN d.type='invoice' AND d.status NOT IN ('canceled','paid') THEN d.total END),0) AS unpaid
+      FROM documents d LEFT JOIN projects p ON p.id = d.project_id
+      WHERE d.client_id = ?1 OR p.client_id = ?1`
     )
     .bind(clientId)
     .first<{ revenue: number; expense: number; unpaid: number }>();
@@ -1047,8 +1083,10 @@ export async function listDocuments(
     conds.push(`d.project_id = ?${binds.length}`);
   }
   if (filter?.clientId) {
+    // 管理上の顧客ベース: 直接この顧客宛の帳票 ＋ この顧客のプロジェクトに紐づく帳票（請求先が別でも含む）
     binds.push(filter.clientId);
-    conds.push(`d.client_id = ?${binds.length}`);
+    const n = binds.length;
+    conds.push(`(d.client_id = ?${n} OR p.client_id = ?${n})`);
   }
   const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
   const { results } = await db.prepare(`${base}${where} ORDER BY d.created_at DESC`).bind(...binds).all<DocumentListRow>();
