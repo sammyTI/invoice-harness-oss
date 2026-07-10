@@ -6,8 +6,25 @@ import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   const allowed = await allowedIssuerIds(db, locals.user);
-  const projects = (await listProjects(db)).filter((p) => !p.issuer_id || canAccessIssuer(allowed, p.issuer_id));
+  let projects = (await listProjects(db)).filter((p) => !p.issuer_id || canAccessIssuer(allowed, p.issuer_id));
+
+  // 検索・絞り込み（案件名/顧客名/担当者のキーワード＋状態）
+  const q = (url.searchParams.get("q") ?? "").trim();
+  const st = url.searchParams.get("st") ?? "";
+  if (q) {
+    const needle = q.toLowerCase();
+    projects = projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(needle) ||
+        p.client_name.toLowerCase().includes(needle) ||
+        (p.person ?? "").toLowerCase().includes(needle)
+    );
+  }
+  if (st === "active" || st === "done") projects = projects.filter((p) => p.status === st);
+
   return {
+    q,
+    st,
     projects,
     clients: await listClients(db),
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),

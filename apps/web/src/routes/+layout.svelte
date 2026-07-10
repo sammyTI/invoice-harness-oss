@@ -128,17 +128,19 @@
   .bare { min-height: 100vh; display: grid; place-items: center; background: var(--bg); padding: 24px; }
   .demo-bar { background: var(--amber-soft); border: 1px solid #f0dcae; color: #8a5a13; padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .demo-out { background: #8a5a13; color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
-  .userbox { margin-top: auto; padding: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .userbox .uname { font-size: 13px; font-weight: 700; }
-  .userbox .urole { font-size: 11px; color: var(--muted); }
-  .userbox .logout { background: var(--slate-soft); color: var(--ink-2); border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  /* ダークネイビーのサイドバー（デザインの要）。中身のリンク・ユーザー枠も同系でまとめる */
+  .userbox { margin-top: auto; padding: 12px 14px; border-top: 1px solid var(--sidebar-line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .userbox .uname { font-size: 13px; font-weight: 700; color: var(--sidebar-ink-strong); }
+  .userbox .urole { font-size: 11px; color: var(--sidebar-ink); }
+  .userbox .urole :global(a) { color: var(--sidebar-ink); }
+  .userbox .logout { background: rgba(255, 255, 255, 0.1); color: var(--sidebar-ink-strong); border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .userbox .logout:hover { background: rgba(255, 255, 255, 0.18); }
   .shell { min-height: 100vh; }
   .sidebar {
-    width: 236px;
+    width: 240px;
     display: flex;
     flex-direction: column;
-    background: var(--surface);
-    border-right: 1px solid var(--line);
+    background: var(--sidebar-bg);
     position: fixed;
     top: 0;
     left: 0;
@@ -148,71 +150,89 @@
     -webkit-overflow-scrolling: touch;
     padding-bottom: 30px;
     z-index: 30;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     font-weight: 800;
     font-size: 15px;
-    color: var(--ink);
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--line);
+    letter-spacing: -0.01em;
+    color: var(--sidebar-ink-strong);
+    padding: 18px 18px 16px;
+    border-bottom: 1px solid var(--sidebar-line);
   }
   .brand .mark {
     display: inline-grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    background: var(--primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--grad);
     color: #fff;
     font-size: 12px;
     font-weight: 800;
+    box-shadow: 0 2px 8px rgba(46, 91, 255, 0.4);
   }
-  nav { display: flex; flex-direction: column; padding: 8px 10px; }
+  nav { display: flex; flex-direction: column; padding: 10px 12px; }
   nav a {
-    color: var(--ink-2);
+    position: relative;
+    color: var(--sidebar-ink);
     text-decoration: none;
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
     margin: 1px 0;
-    border-left: 3px solid transparent;
+    transition: background-color 0.12s ease, color 0.12s ease;
   }
-  nav a.sub { font-size: 13px; padding-left: 18px; color: var(--muted); }
-  nav a:hover { background: var(--surface-2); color: var(--ink); text-decoration: none; }
+  nav a.sub { font-size: 13px; padding-left: 18px; }
+  nav a:hover { background: rgba(255, 255, 255, 0.06); color: var(--sidebar-ink-strong); text-decoration: none; }
   nav a.active {
-    background: var(--primary-soft);
-    color: var(--primary-d);
+    background: var(--sidebar-active);
+    color: var(--sidebar-ink-strong);
     font-weight: 700;
-    border-left-color: var(--primary);
+  }
+  nav a.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--grad);
   }
   .sec {
-    font-size: 11px;
-    color: var(--muted);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.38);
     font-weight: 700;
-    padding: 15px 12px 5px;
-    letter-spacing: 0.03em;
+    padding: 16px 12px 5px;
+    letter-spacing: 0.14em;
   }
-  main { margin-left: 236px; padding: 26px 34px; max-width: 1180px; min-width: 0; }
+  main { margin-left: 240px; padding: 26px 34px; max-width: 1180px; min-width: 0; }
 
   /* モバイル用トップバー（デフォルト非表示） */
   .topbar { display: none; }
   .scrim { display: none; }
   .hamburger { background: none; border: none; cursor: pointer; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
-  .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; }
-  .tb-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; color: var(--ink); text-decoration: none; }
-  .tb-brand .mark { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: var(--primary); color: #fff; font-size: 11px; }
+  .hamburger span { display: block; width: 22px; height: 2px; background: #fff; border-radius: 2px; }
+  .tb-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; color: #fff; text-decoration: none; }
+  .tb-brand .mark { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--grad); color: #fff; font-size: 11px; }
 
   @media (max-width: 820px) {
     .topbar {
       display: flex; align-items: center; gap: 12px;
       position: sticky; top: 0; z-index: 40;
-      background: var(--surface); border-bottom: 1px solid var(--line);
+      background: var(--sidebar-bg);
       padding: 10px 14px;
     }
-    .scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.35); border: none; }
+    .scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(10, 15, 28, 0.5); border: none; }
     .shell { display: block; }
     .sidebar {
       position: fixed; top: 0; left: 0; z-index: 50;

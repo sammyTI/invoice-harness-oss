@@ -1,34 +1,41 @@
-/* ===== invoice-harness-oss / design system =====
-   Back-office invoicing tool. Calm, precise, trustworthy.
-   Signature: tabular numerics for money + thin accent rule under section titles. */
+/* ===== invoice-harness-oss / design system v2 =====
+   会計・帳票のバックオフィスSaaS。信頼の濃紺＋精密なタブラー数字。
+   Signature: ダークネイビーのサイドバーと、藍→翡翠のグラデーション（ブランド・アクティブ・目標バーのみに限定使用）。 */
 
 :root {
-  --bg: #eef1f6;
+  --bg: #f2f4f9;
   --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --ink: #1b2330;
-  --ink-2: #59616f;
-  --muted: #8a94a3;
-  --line: #e4e8ee;
-  --line-2: #eef1f5;
+  --surface-2: #f6f8fc;
+  --ink: #0e1526;
+  --ink-2: #4b5565;
+  --muted: #8a94a6;
+  --line: #e5e9f1;
+  --line-2: #eef1f7;
 
-  --primary: #2f6df0;
-  --primary-d: #2257cc;
-  --primary-soft: #e9f1ff;
+  --primary: #2e5bff;
+  --primary-d: #1f43d6;
+  --primary-soft: #eaefff;
+  --grad: linear-gradient(120deg, #2e5bff, #00b8a9);
 
-  --green: #1aa260;
-  --green-soft: #e6f6ee;
-  --amber: #b7791f;
-  --amber-soft: #fbf1dd;
-  --red: #d64545;
-  --red-soft: #fdeaea;
+  --green: #0e9f66;
+  --green-soft: #e4f7ee;
+  --amber: #c77e14;
+  --amber-soft: #fdf2dd;
+  --red: #dd4646;
+  --red-soft: #fdecec;
   --slate: #5b6573;
-  --slate-soft: #eef1f5;
+  --slate-soft: #edf0f6;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.07);
-  --shadow-pop: 0 8px 28px rgba(16, 24, 40, 0.12);
+  --sidebar-bg: #0e1526;
+  --sidebar-ink: rgba(255, 255, 255, 0.68);
+  --sidebar-ink-strong: #ffffff;
+  --sidebar-line: rgba(255, 255, 255, 0.08);
+  --sidebar-active: rgba(255, 255, 255, 0.09);
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(14, 21, 38, 0.04), 0 4px 16px rgba(14, 21, 38, 0.05);
+  --shadow-pop: 0 12px 32px rgba(14, 21, 38, 0.16);
 }
 
 * { box-sizing: border-box; }
@@ -41,6 +48,7 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  font-feature-settings: "palt";
 }
 /* 画像・埋め込みが親幅を超えないように */
 img, iframe, table, pre { max-width: 100%; }
@@ -48,7 +56,14 @@ img, iframe, table, pre { max-width: 100%; }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-.num { font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* キーボード操作の視認性 */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
 
 /* ---- page header ---- */
 .page-head {
@@ -61,9 +76,9 @@ a:hover { text-decoration: underline; }
 }
 .page-head .page-title { min-width: 0; }
 .page-title {
-  font-size: 22px;
+  font-size: 23px;
   font-weight: 800;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   margin: 0;
   display: flex;
   align-items: center;
@@ -72,9 +87,10 @@ a:hover { text-decoration: underline; }
 .page-title .tag {
   font-size: 12px;
   font-weight: 700;
-  color: var(--primary);
+  letter-spacing: 0;
+  color: var(--primary-d);
   background: var(--primary-soft);
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
 }
 
@@ -93,16 +109,18 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
   text-decoration: none;
   line-height: 1;
+  transition: background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.08s ease;
 }
 .btn:hover { text-decoration: none; }
-.btn-primary { background: var(--primary); color: #fff; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(46, 91, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
 .btn-primary:hover { background: var(--primary-d); }
-.btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--line); }
-.btn-ghost:hover { background: var(--surface-2); }
+.btn-ghost { background: var(--surface); color: var(--ink); border-color: #d9dfeb; box-shadow: 0 1px 2px rgba(14, 21, 38, 0.05); }
+.btn-ghost:hover { background: var(--surface-2); border-color: #c8d0e0; }
 .btn-quiet { background: var(--slate-soft); color: var(--ink-2); }
-.btn-quiet:hover { background: #e6eaf0; }
+.btn-quiet:hover { background: #e3e8f1; color: var(--ink); }
 .btn-danger { background: var(--red); color: #fff; }
-.btn-danger:hover { background: #b83a3a; }
+.btn-danger:hover { background: #c23a3a; }
 .btn[disabled], .btn.is-disabled { opacity: 0.5; pointer-events: none; }
 .btn-sm { padding: 6px 11px; font-size: 13px; }
 
@@ -137,7 +155,7 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 18px 20px;
+  padding: 20px 22px;
   margin-bottom: 16px;
 }
 .section-head {
@@ -149,10 +167,11 @@ a:hover { text-decoration: underline; }
 .section-head h2 {
   font-size: 14px;
   font-weight: 800;
+  letter-spacing: -0.005em;
   margin: 0;
   padding-left: 10px;
   border-left: 3px solid var(--primary);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 .section-head .edit {
   font-size: 13px;
@@ -168,50 +187,53 @@ a:hover { text-decoration: underline; }
 /* ---- tables ---- */
 .table { width: 100%; border-collapse: collapse; background: var(--surface); }
 .table th {
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
   text-align: left;
-  padding: 11px 14px;
+  padding: 11px 14px 9px;
   border-bottom: 1px solid var(--line);
 }
 .table td { padding: 13px 14px; border-bottom: 1px solid var(--line-2); font-size: 14px; }
 .table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr:hover { background: var(--surface-2); }
+.table tbody tr:hover { background: #f4f7fd; }
 .table .r { text-align: right; }
-.table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: var(--shadow); }
+.table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: var(--shadow); }
 .table-wrap .table { min-width: 560px; }
 
 /* ---- forms ---- */
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-.field > .lab { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.field > .lab { font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .input, select.input, textarea.input {
   font: inherit;
   font-size: 16px; /* iOSで入力時にズームしない最小サイズ */
-  padding: 9px 11px;
-  border: 1px solid var(--line);
+  padding: 9px 12px;
+  border: 1px solid #d9dfeb;
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--ink);
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 input[type="date"].input { appearance: none; -webkit-appearance: none; }
 @media (min-width: 641px) { .input, select.input, textarea.input { font-size: 14px; } }
-.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(46, 91, 255, 0.14); }
+.input::placeholder { color: #a6aebd; }
 
 /* ---- misc ---- */
 .empty {
   background: var(--surface);
-  border: 1px dashed var(--line);
+  border: 1px dashed #d3dae6;
   border-radius: var(--radius);
   padding: 40px 24px;
   text-align: center;
   color: var(--ink-2);
 }
-.flash-ok { background: var(--green-soft); color: #136c41; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
+.flash-ok { background: var(--green-soft); color: #0c6b45; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
 .flash-err { background: var(--red-soft); color: #a52f2f; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 14px; }
 
 /* グリッドの子を min-width:0 にして、内部のテーブル/入力/長い値(min-width)が

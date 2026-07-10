@@ -9,6 +9,17 @@
 <p class="hint">顧客ごとの案件に、請求書・見積書・支払（発注/支払通知）を紐づけて収支（粗利）を管理します。</p>
 {#if form?.error}<p class="flash-err">{form.error}</p>{/if}
 
+<form class="searchbar" method="GET">
+  <input class="input fq" name="q" value={data.q} placeholder="案件名・顧客名・担当者で検索" />
+  <select class="input fsel" name="st">
+    <option value="">すべての状態</option>
+    <option value="active" selected={data.st === "active"}>進行中</option>
+    <option value="done" selected={data.st === "done"}>完了</option>
+  </select>
+  <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
+  {#if data.q || data.st}<a class="btn btn-quiet btn-sm" href="/projects">クリア</a>{/if}
+</form>
+
 <div class="layout">
   <div class="main">
     {#if data.projects.length === 0}
@@ -64,11 +75,14 @@
 
 <style>
   .hint { color: var(--ink-2); font-size: 13px; margin-top: -8px; }
+  .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .searchbar .fq { max-width: 280px; }
+  .searchbar .fsel { width: auto; font-size: 13px; }
   .layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 20px; align-items: start; }
   @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
   .pname { font-weight: 700; }
   .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .profit { font-weight: 700; }
+  .profit { font-weight: 700; white-space: nowrap; }
   .profit.neg { color: var(--red); }
   tr.done td { opacity: 0.65; }
 </style>
