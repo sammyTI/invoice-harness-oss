@@ -82,13 +82,14 @@
 <div class="card pl">
   <div class="pl-head">
     <h2>月次推移（{data.fyLabel}）</h2>
-    <div class="legend"><span class="dot rev"></span>売上 <span class="dot exp"></span>費用 <span class="scale">上限 ¥{compact(data.maxMonthly)}</span></div>
+    <div class="legend"><span class="dot rev"></span>売上 <span class="dot exp"></span>費用 {#if data.hasMonthTargets}<span class="dot tgt"></span>目標{/if} <span class="scale">上限 ¥{compact(data.maxMonthly)}</span></div>
   </div>
   <div class="chart">
     {#each data.months as m}
-      <div class="mcol" title={`${m.label} 売上 ${formatYen(m.revenue)} / 費用 ${formatYen(m.expense)}`}>
+      <div class="mcol" title={`${m.label} 売上 ${formatYen(m.revenue)} / 費用 ${formatYen(m.expense)}${m.target ? ` / 目標 ${formatYen(m.target)}` : ""}`}>
         <div class="mval" class:zero={!m.revenue}>{m.revenue ? compact(m.revenue) : ""}</div>
         <div class="bars">
+          {#if m.target > 0}<div class="tgtline" style={`bottom:${pct(m.target)}%`}></div>{/if}
           <div class="bar rev" style={`height:${pct(m.revenue)}%`}></div>
           <div class="bar exp" style={`height:${pct(m.expense)}%`}></div>
         </div>
@@ -196,11 +197,14 @@
   .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .legend .dot.rev { background: var(--primary); }
   .legend .dot.exp { background: var(--amber); margin-left: 8px; }
+  .legend .dot.tgt { background: var(--green); margin-left: 8px; }
   .chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; height: 200px; align-items: end; }
   .mcol { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
   .mval { font-size: 10px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
   .mval.zero { color: transparent; }
-  .bars { display: flex; align-items: flex-end; gap: 3px; flex: 1; min-height: 0; width: 100%; justify-content: center; }
+  .bars { position: relative; display: flex; align-items: flex-end; gap: 3px; flex: 1; min-height: 0; width: 100%; justify-content: center; }
+  /* 月次目標ライン（PLの目標水準） */
+  .tgtline { position: absolute; left: 8%; right: 8%; height: 0; border-top: 2px dashed var(--green); z-index: 1; }
   .bar { width: 42%; border-radius: 5px 5px 0 0; min-height: 2px; }
   .bar.rev { background: linear-gradient(180deg, #2e5bff, #5d80ff); }
   .bar.exp { background: #e9bd77; }

@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { getDB, listDocuments, listIssuers } from "$lib/server/db";
+import { getDB, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE = new Set(["invoice"]);
@@ -34,6 +34,13 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const expTotal = sum(payments);
   const expPaid = sum(payments.filter((d) => d.status === "paid"));
 
+  // その月の売上目標（会社選択中はその会社、全社合算は全社の合計）と達成率
+  const monthTargets = await listTargets(db, [month]);
+  const target = issuerId
+    ? sumTargets(monthTargets, "company", issuerId)
+    : issuers.reduce((a, i) => a + sumTargets(monthTargets, "company", i.id), 0);
+  const achievement = target > 0 ? Math.round((revTotal / target) * 1000) / 10 : null;
+
   return {
     month,
     prev,
@@ -44,6 +51,8 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     multiCompany: issuers.length > 1,
     invoices,
     payments,
+    target,
+    achievement,
     kpi: {
       revTotal,
       revPaid,

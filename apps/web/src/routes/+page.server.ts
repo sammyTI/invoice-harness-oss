@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { effectiveDivision, getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets } from "$lib/server/db";
+import { effectiveDivision, getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -63,17 +63,25 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const unpaid = revenue - paid;
   const profit = revenue - expense;
 
-  // 売上目標と達成率（設定 ▸ 目標 で登録）。
+  // 売上目標と達成率（設定 ▸ 売上目標 で会社・部門×月ごとに登録）。
+  // 月次目標を表示期間（この会計/暦年の12ヶ月）ぶん合計する。決算期表示でも暦年表示でも
+  // 実際の暦年月で合計するのでキーがズレない。
+  const periodYms = fiscalMonths(fy).map((m) => m.ym);
+  const targets = await listTargets(db, periodYms);
   //  - 部門選択中 → その部門の目標 ／ 会社選択中 → その会社の目標 ／ 全社合算 → 会社目標の合計
-  const targets = await listTargets(db, fy.endYear);
-  const companyTargets = new Map(targets.filter((t) => t.scope_type === "company").map((t) => [t.scope_id, t.amount]));
-  const divisionTargets = new Map(targets.filter((t) => t.scope_type === "division").map((t) => [t.scope_id, t.amount]));
   let target = 0;
-  if (divisionId) target = divisionTargets.get(divisionId) ?? 0;
-  else if (issuerId) target = companyTargets.get(issuerId) ?? 0;
-  else target = issuers.reduce((a, i) => a + (companyTargets.get(i.id) ?? 0), 0);
+  if (divisionId) target = sumTargets(targets, "division", divisionId);
+  else if (issuerId) target = sumTargets(targets, "company", issuerId);
+  else target = issuers.reduce((a, i) => a + sumTargets(targets, "company", i.id), 0);
   const achievement = target > 0 ? Math.round((revenue / target) * 1000) / 10 : null;
 
+  // 各月の売上目標（表示中スコープ: 部門/会社/全社合算）。
+  const monthTarget = (ym: string) => {
+    const inYm = targets.filter((t) => t.ym === ym);
+    if (divisionId) return sumTargets(inYm, "division", divisionId);
+    if (issuerId) return sumTargets(inYm, "company", issuerId);
+    return issuers.reduce((a, i) => a + sumTargets(inYm, "company", i.id), 0);
+  };
   const months = fiscalMonths(fy).map((m) => {
     const rev = inFy
       .filter((d) => REVENUE_TYPES.has(d.type) && d.issue_date.startsWith(m.ym))
@@ -81,9 +89,10 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     const exp = inFy
       .filter((d) => EXPENSE_TYPES.has(d.type) && d.issue_date.startsWith(m.ym))
       .reduce((a, d) => a + d.total, 0);
-    return { label: m.label, ym: m.ym, revenue: rev, expense: exp, profit: rev - exp };
+    return { label: m.label, ym: m.ym, revenue: rev, expense: exp, profit: rev - exp, target: monthTarget(m.ym) };
   });
-  const maxMonthly = Math.max(1, ...months.map((m) => Math.max(m.revenue, m.expense)));
+  const hasMonthTargets = months.some((m) => m.target > 0);
+  const maxMonthly = Math.max(1, ...months.map((m) => Math.max(m.revenue, m.expense, m.target)));
 
   // 部門別（計上区分別）損益 ＋ 部門目標と達成率
   const divMap = new Map<string, { name: string; revenue: number; expense: number }>();
@@ -98,7 +107,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   }
   const divisions = [...divMap.entries()]
     .map(([id, v]) => {
-      const t = divisionTargets.get(id) ?? 0;
+      const t = sumTargets(targets, "division", id);
       return {
         ...v,
         profit: v.revenue - v.expense,
@@ -129,6 +138,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     achievement,
     months,
     maxMonthly,
+    hasMonthTargets,
     divisions,
     divMax,
     hasDivisions,

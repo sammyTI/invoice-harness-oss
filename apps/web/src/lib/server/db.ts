@@ -329,34 +329,44 @@ export async function assignDocumentProject(db: D1Database, docId: string, proje
 // ---------- 売上目標（年度・会社/部門ごと） ----------
 
 export interface TargetRow {
-  fiscal_year: number;
+  ym: string; // 'YYYY-MM' 暦年月
   scope_type: string; // company | division
   scope_id: string;
   amount: number;
 }
 
-export async function listTargets(db: D1Database, fiscalYear: number): Promise<TargetRow[]> {
+/** 指定した暦年月リストの月次目標を取得（表示期間の各月を渡す）。 */
+export async function listTargets(db: D1Database, yms: string[]): Promise<TargetRow[]> {
+  if (yms.length === 0) return [];
+  const placeholders = yms.map((_, i) => `?${i + 1}`).join(",");
   const { results } = await db
-    .prepare("SELECT fiscal_year, scope_type, scope_id, amount FROM targets WHERE fiscal_year = ?1")
-    .bind(fiscalYear)
+    .prepare(`SELECT ym, scope_type, scope_id, amount FROM monthly_targets WHERE ym IN (${placeholders})`)
+    .bind(...yms)
     .all<TargetRow>();
   return results ?? [];
 }
 
-export async function setTarget(db: D1Database, fiscalYear: number, scopeType: "company" | "division", scopeId: string, amount: number): Promise<void> {
+/** scope（会社/部門）ごとに、渡した目標行の金額を合計する。表示期間の目標＝各月の合計。 */
+export function sumTargets(rows: TargetRow[], scopeType: "company" | "division", scopeId: string): number {
+  return rows
+    .filter((t) => t.scope_type === scopeType && t.scope_id === scopeId)
+    .reduce((a, t) => a + t.amount, 0);
+}
+
+export async function setTarget(db: D1Database, ym: string, scopeType: "company" | "division", scopeId: string, amount: number): Promise<void> {
   if (amount > 0) {
     await db
       .prepare(
-        `INSERT INTO targets (fiscal_year, scope_type, scope_id, amount) VALUES (?1,?2,?3,?4)
-         ON CONFLICT(fiscal_year, scope_type, scope_id) DO UPDATE SET amount = ?4`
+        `INSERT INTO monthly_targets (ym, scope_type, scope_id, amount) VALUES (?1,?2,?3,?4)
+         ON CONFLICT(ym, scope_type, scope_id) DO UPDATE SET amount = ?4`
       )
-      .bind(fiscalYear, scopeType, scopeId, Math.round(amount))
+      .bind(ym, scopeType, scopeId, Math.round(amount))
       .run();
   } else {
     // 0 or negative = 目標を消す
     await db
-      .prepare("DELETE FROM targets WHERE fiscal_year = ?1 AND scope_type = ?2 AND scope_id = ?3")
-      .bind(fiscalYear, scopeType, scopeId)
+      .prepare("DELETE FROM monthly_targets WHERE ym = ?1 AND scope_type = ?2 AND scope_id = ?3")
+      .bind(ym, scopeType, scopeId)
       .run();
   }
 }

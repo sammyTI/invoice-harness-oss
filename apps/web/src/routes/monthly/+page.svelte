@@ -38,8 +38,21 @@
   <div class="kpi card accent-profit">
     <span class="lab">粗利（請求 − 支払）</span>
     <span class="val num" class:neg={data.kpi.profit < 0}>{formatYen(data.kpi.profit)}</span>
+    {#if data.target > 0}
+      <span class="sub num">売上目標 {formatYen(data.target)}・達成率 <b class:ok={data.achievement >= 100}>{data.achievement}%</b></span>
+    {/if}
   </div>
 </div>
+{#if data.target > 0}
+  <div class="card mtarget">
+    <div class="mt-row">
+      <span class="mt-lab">今月の売上目標</span>
+      <span class="mt-val num">実績 {formatYen(data.kpi.revTotal)} <span class="mt-sep">/</span> 目標 {formatYen(data.target)}</span>
+      <span class="mt-pct num" class:ok={data.achievement >= 100}>{data.achievement}%</span>
+    </div>
+    <div class="mt-track"><div class="mt-fill" class:over={data.achievement >= 100} style={`width:${Math.min(100, data.achievement)}%`}></div></div>
+  </div>
+{/if}
 
 <div class="cols">
   <section class="pane">
@@ -122,6 +135,17 @@
   .kpi .val { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
   .kpi .val.neg { color: var(--red); }
   .kpi .sub { font-size: 12px; color: var(--muted); }
+  .kpi .sub .ok { color: var(--green); }
+  .mtarget { padding: 14px 18px; margin: 0 0 18px; }
+  .mt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .mt-lab { font-weight: 800; font-size: 14px; }
+  .mt-val { color: var(--ink-2); font-size: 13px; }
+  .mt-sep { color: var(--muted); margin: 0 2px; }
+  .mt-pct { margin-left: auto; font-weight: 800; font-size: 18px; color: var(--amber); }
+  .mt-pct.ok { color: var(--green); }
+  .mt-track { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .mt-fill { height: 100%; background: var(--grad); border-radius: 999px; min-width: 2px; transition: width 0.4s ease; }
+  .mt-fill.over { background: var(--green); }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
   @media (max-width: 1080px) { .cols { grid-template-columns: 1fr; } }
   .pane-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; padding-left: 10px; border-left: 3px solid var(--primary); }

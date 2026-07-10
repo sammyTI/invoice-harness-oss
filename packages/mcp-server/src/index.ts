@@ -291,19 +291,25 @@ server.tool(
 // ---------- 売上目標 ----------
 server.tool(
   "list_targets",
-  "売上目標の一覧（会社・部門ごとの年間目標）。fiscal_year 省略時は今年度。",
-  { fiscal_year: z.number().optional().describe("決算年（例 2027 = 2027年◯月期）") },
-  async ({ fiscal_year }) => ok(await api(`/api/targets${fiscal_year ? `?fy=${fiscal_year}` : ""}`))
+  "売上目標の一覧（会社・部門ごとの月次目標）。month=YYYY-MM で単月、fiscal_year でその年度の12ヶ月分。省略時は今年度。",
+  {
+    month: z.string().optional().describe("YYYY-MM（単月で取得）"),
+    fiscal_year: z.number().optional().describe("決算年（例 2027 = 2027年◯月期。12ヶ月分を取得）"),
+  },
+  async ({ month, fiscal_year }) => {
+    const q = month ? `?month=${month}` : fiscal_year ? `?fy=${fiscal_year}` : "";
+    return ok(await api(`/api/targets${q}`));
+  }
 );
 
 server.tool(
   "set_target",
-  "売上目標を設定。会社名または部門名で指定（amount=0 で削除）。ダッシュボードに達成率が表示される。",
+  "売上目標を月次で設定。会社名または部門名 × month(YYYY-MM) で指定（amount=0 で削除）。ダッシュボードに達成率・目標ラインが表示される。",
   {
-    fiscal_year: z.number().optional().describe("決算年。省略時は今年度"),
+    month: z.string().describe("YYYY-MM（対象の暦年月）"),
     company_name: z.string().optional().describe("会社の目標を設定する場合"),
     division_name: z.string().optional().describe("部門の目標を設定する場合"),
-    amount: z.number().describe("年間売上目標（税込・円）"),
+    amount: z.number().describe("その月の売上目標（税込・円）"),
   },
   async (body) => ok(await api(`/api/targets`, { method: "PUT", body: JSON.stringify(body) }))
 );
