@@ -6,7 +6,10 @@
   $: ({ doc, issuer, client, lines, totals, settings, payments, paid_total, balance } = data.full);
   $: fmt = (d) => formatDate(d, settings.date_format);
   const today = new Date().toISOString().slice(0, 10);
-  $: canPay = doc.type === "invoice" && balance > 0;
+  // invoice=入金（もらう）、order/payment_notice=支払（払う・外注費）を記録できる
+  $: isCost = doc.type === "order" || doc.type === "payment_notice";
+  $: payWord = isCost ? "支払" : "入金";
+  $: canPay = (doc.type === "invoice" || isCost) && balance > 0;
   $: locked = !!doc.locked;
   $: canceled = doc.status === "canceled";
   $: flow = DOCUMENT_FLOW[doc.type] ?? [];
@@ -44,6 +47,17 @@
     <span class="chip {st.cls}">{st.label}</span>
     <span class="docno num">{doc.number}</span>
     {#if data.divisionName}<span class="chip chip-div">{data.divisionName}</span>{/if}
+    {#if data.project}
+      <a class="chip chip-prj" href={`/projects/${data.project.id}`} title="プロジェクトを開く">{data.project.name}</a>
+    {:else if data.projects.length}
+      <form method="POST" action="?/assignProject" class="prjassign">
+        <select class="input prjsel" name="project_id">
+          <option value="">案件に紐づけ…</option>
+          {#each data.projects as pr}<option value={pr.id}>{pr.name}（{pr.client_name}）</option>{/each}
+        </select>
+        <button class="btn btn-quiet btn-sm" type="submit">紐づけ</button>
+      </form>
+    {/if}
   </div>
   <div class="bar-r">
     {#if !locked}
@@ -132,27 +146,27 @@
 
 <div class="grid">
   <div class="col-info">
-    {#if doc.type === "invoice"}
+    {#if doc.type === "invoice" || isCost}
       <section class="section paybox">
-        <div class="section-head"><h2>入金</h2><span class="bal">残額 {formatYen(balance)}</span></div>
+        <div class="section-head"><h2>{payWord}</h2><span class="bal">残額 {formatYen(balance)}</span></div>
         {#if payments.length}
           <ul class="paylist">
             {#each payments as p}
               <li>
                 <span class="num">{p.paid_date ?? "—"}</span>
                 <span class="num amt">{formatYen(p.amount)}</span>
-                {#if p.fee}<span class="muted feenote">手数料 {formatYen(p.fee)} ／ 実入金 {formatYen(p.amount - p.fee)}</span>{/if}
+                {#if p.fee}<span class="muted feenote">手数料 {formatYen(p.fee)} ／ 実{payWord} {formatYen(p.amount - p.fee)}</span>{/if}
                 <span class="muted">{p.method ?? ""}{p.reference ? ` / ${p.reference}` : ""}</span>
                 <form method="POST" action="?/delpay"><input type="hidden" name="payment_id" value={p.id} /><button class="x" type="submit" aria-label="取消">×</button></form>
               </li>
             {/each}
-            <li class="ptotal"><span>入金合計</span><span class="num">{formatYen(paid_total)}</span></li>
+            <li class="ptotal"><span>{payWord}合計</span><span class="num">{formatYen(paid_total)}</span></li>
           </ul>
         {/if}
         {#if balance > 0}
           <form method="POST" action="?/pay" class="payform">
-            <label>入金日<input class="input" type="date" name="paid_date" value={today} /></label>
-            <label>入金額（請求額）<input class="input" type="number" name="amount" bind:value={payAmount} /></label>
+            <label>{payWord}日<input class="input" type="date" name="paid_date" value={today} /></label>
+            <label>{payWord}額<input class="input" type="number" name="amount" bind:value={payAmount} /></label>
             <label>方法
               <select class="input" name="method" bind:value={payMethod}>
                 <option value="銀行振込">銀行振込</option>
@@ -167,15 +181,15 @@
             <label>決済手数料
               <span class="feewrap">
                 <input class="input" type="number" name="fee" bind:value={payFee} />
-                <button type="button" class="btn btn-quiet btn-sm feebtn" on:click={autoFee} title="入金額の3.6%を計算">3.6%</button>
+                <button type="button" class="btn btn-quiet btn-sm feebtn" on:click={autoFee} title="金額の3.6%を計算">3.6%</button>
               </span>
             </label>
-            <label>入金伝票番号 / 摘要<input class="input" name="reference" placeholder="振込番号・摘要（合算入金は同じ番号で各請求に）" /></label>
-            <button class="btn btn-primary" type="submit">入金を記録</button>
+            <label>{payWord}伝票番号 / 摘要<input class="input" name="reference" placeholder="振込番号・摘要（合算は同じ番号で各帳票に）" /></label>
+            <button class="btn btn-primary" type="submit">{payWord}を記録</button>
           </form>
-          {#if payFee > 0}<p class="netnote">実入金（口座に入る額）：<b>{formatYen(netReceived)}</b>（請求額 {formatYen(payAmount)} − 手数料 {formatYen(payFee)}）</p>{/if}
+          {#if payFee > 0}<p class="netnote">実{payWord}額：<b>{formatYen(netReceived)}</b>（{formatYen(payAmount)} − 手数料 {formatYen(payFee)}）</p>{/if}
         {:else}
-          <p class="fullpaid">全額入金済み</p>
+          <p class="fullpaid">全額{payWord}済み</p>
         {/if}
       </section>
     {/if}
@@ -293,6 +307,10 @@
   .banner.canceled { background: var(--red-soft); border: 1px solid #f0c2c2; color: #9c2a2a; }
   .banner .hashnote { color: var(--muted); font-size: 11px; }
   .chip-div { background: var(--slate-soft); color: var(--ink-2); font-weight: 700; }
+  .chip-prj { background: var(--primary-soft); color: var(--primary-d); font-weight: 700; text-decoration: none; }
+  .chip-prj:hover { text-decoration: underline; }
+  .prjassign { display: flex; gap: 6px; align-items: center; margin: 0; }
+  .prjsel { width: auto; max-width: 220px; font-size: 12px; padding: 6px 8px; }
 
   .share { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin: 0 0 16px; }
   .share-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }

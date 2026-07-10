@@ -80,6 +80,7 @@
       {/each}
 
       <div class="sec">管理</div>
+      <a class:active={active("/projects")} href="/projects">プロジェクト</a>
       <a class:active={active("/clients")} href="/clients">取引先</a>
       <a class:active={active("/items")} href="/items">品目マスタ</a>
       {#if isAdmin}

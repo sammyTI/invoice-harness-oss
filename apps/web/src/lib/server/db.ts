@@ -212,6 +212,133 @@ export async function clientCategoryNameMap(db: D1Database): Promise<Record<stri
   return map;
 }
 
+// ---------- プロジェクト（案件） ----------
+// 顧客の配下に案件を持ち、帳票を紐づける。粗利 = 請求(invoice) − 支払(order/payment_notice)。
+
+export interface Project {
+  id: string;
+  name: string;
+  client_id: string;
+  issuer_id: string | null;
+  division_id: string | null;
+  detail: string | null;
+  status: string; // active | done
+  start_date: string | null;
+  end_date: string | null;
+  person: string | null;
+  created_at: string;
+}
+
+export interface ProjectInput {
+  name: string;
+  client_id: string;
+  issuer_id?: string | null;
+  division_id?: string | null;
+  detail?: string | null;
+  status?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  person?: string | null;
+}
+
+export interface ProjectListRow extends Project {
+  client_name: string;
+  division_name: string | null;
+  revenue: number; // 請求合計（取消除く・税込）
+  expense: number; // 支払合計（発注/支払通知・税込）
+  profit: number;  // 粗利
+  doc_count: number;
+}
+
+const PRJ_REVENUE = `SELECT COALESCE(SUM(total),0) FROM documents WHERE project_id = p.id AND type = 'invoice' AND status != 'canceled'`;
+const PRJ_EXPENSE = `SELECT COALESCE(SUM(total),0) FROM documents WHERE project_id = p.id AND type IN ('order','payment_notice') AND status != 'canceled'`;
+
+export async function listProjects(db: D1Database, clientId?: string): Promise<ProjectListRow[]> {
+  const base = `SELECT p.*, c.name AS client_name, dv.name AS division_name,
+      (${PRJ_REVENUE}) AS revenue,
+      (${PRJ_EXPENSE}) AS expense,
+      (SELECT COUNT(*) FROM documents WHERE project_id = p.id) AS doc_count
+    FROM projects p JOIN clients c ON c.id = p.client_id
+    LEFT JOIN divisions dv ON dv.id = p.division_id
+    ${clientId ? "WHERE p.client_id = ?1" : ""}
+    ORDER BY p.status = 'done', p.created_at DESC`;
+  const stmt = clientId ? db.prepare(base).bind(clientId) : db.prepare(base);
+  const { results } = await stmt.all<ProjectListRow & { revenue: number; expense: number }>();
+  return (results ?? []).map((r) => ({ ...r, profit: r.revenue - r.expense }));
+}
+
+export async function getProject(db: D1Database, id: string): Promise<ProjectListRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT p.*, c.name AS client_name, dv.name AS division_name,
+        (${PRJ_REVENUE}) AS revenue,
+        (${PRJ_EXPENSE}) AS expense,
+        (SELECT COUNT(*) FROM documents WHERE project_id = p.id) AS doc_count
+      FROM projects p JOIN clients c ON c.id = p.client_id
+      LEFT JOIN divisions dv ON dv.id = p.division_id
+      WHERE p.id = ?1`
+    )
+    .bind(id)
+    .first<ProjectListRow>();
+  if (!row) return null;
+  return { ...row, profit: row.revenue - row.expense };
+}
+
+export async function createProject(db: D1Database, f: ProjectInput): Promise<string> {
+  const id = crypto.randomUUID();
+  await db
+    .prepare(
+      `INSERT INTO projects (id, name, client_id, issuer_id, division_id, detail, status, start_date, end_date, person)
+       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+    )
+    .bind(
+      id, f.name, f.client_id, f.issuer_id ?? null, f.division_id ?? null, f.detail ?? null,
+      f.status === "done" ? "done" : "active", f.start_date ?? null, f.end_date ?? null, f.person ?? null
+    )
+    .run();
+  return id;
+}
+
+export async function updateProject(db: D1Database, id: string, f: ProjectInput): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE projects SET name=?2, client_id=?3, issuer_id=?4, division_id=?5, detail=?6, status=?7, start_date=?8, end_date=?9, person=?10 WHERE id=?1`
+    )
+    .bind(
+      id, f.name, f.client_id, f.issuer_id ?? null, f.division_id ?? null, f.detail ?? null,
+      f.status === "done" ? "done" : "active", f.start_date ?? null, f.end_date ?? null, f.person ?? null
+    )
+    .run();
+}
+
+export async function deleteProject(db: D1Database, id: string): Promise<void> {
+  // 帳票は残す（プロジェクト割当だけ外す）
+  await db.prepare("UPDATE documents SET project_id = NULL WHERE project_id = ?1").bind(id).run();
+  await db.prepare("DELETE FROM projects WHERE id = ?1").bind(id).run();
+}
+
+/** 帳票をプロジェクトに割当/解除（projectId=null で解除）。 */
+export async function assignDocumentProject(db: D1Database, docId: string, projectId: string | null): Promise<void> {
+  await db.prepare("UPDATE documents SET project_id = ?2 WHERE id = ?1").bind(docId, projectId).run();
+}
+
+/** 顧客単位の収支（全帳票横断。取消除く・税込）。 */
+export async function clientFinancials(db: D1Database, clientId: string): Promise<{ revenue: number; expense: number; profit: number; unpaid: number }> {
+  const row = await db
+    .prepare(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type='invoice' AND status != 'canceled' THEN total END),0) AS revenue,
+        COALESCE(SUM(CASE WHEN type IN ('order','payment_notice') AND status != 'canceled' THEN total END),0) AS expense,
+        COALESCE(SUM(CASE WHEN type='invoice' AND status NOT IN ('canceled','paid') THEN total END),0) AS unpaid
+      FROM documents WHERE client_id = ?1`
+    )
+    .bind(clientId)
+    .first<{ revenue: number; expense: number; unpaid: number }>();
+  const revenue = row?.revenue ?? 0;
+  const expense = row?.expense ?? 0;
+  return { revenue, expense, profit: revenue - expense, unpaid: row?.unpaid ?? 0 };
+}
+
 // ---------- メールテンプレート ----------
 
 export interface EmailTemplate {
@@ -887,17 +1014,21 @@ export interface DocumentListRow {
   issuer_id: string;
   division_id: string | null;
   division_name: string | null;
+  project_id: string | null;
+  project_name: string | null;
 }
 
 export async function listDocuments(
   db: D1Database,
   type?: DocumentType,
-  allowed?: string[] | null
+  allowed?: string[] | null,
+  filter?: { projectId?: string; clientId?: string }
 ): Promise<DocumentListRow[]> {
   const base = `SELECT d.id, d.type, d.number, d.status, d.issue_date, d.due_date, d.locked, d.total, c.name AS client_name,
-       d.issuer_id, d.division_id, dv.name AS division_name
+       d.issuer_id, d.division_id, dv.name AS division_name, d.project_id, p.name AS project_name
        FROM documents d JOIN clients c ON c.id = d.client_id
-       LEFT JOIN divisions dv ON dv.id = d.division_id`;
+       LEFT JOIN divisions dv ON dv.id = d.division_id
+       LEFT JOIN projects p ON p.id = d.project_id`;
   const conds: string[] = [];
   const binds: string[] = [];
   if (type) {
@@ -910,6 +1041,14 @@ export async function listDocuments(
       return `?${binds.length}`;
     });
     conds.push(`d.issuer_id IN (${ph.join(",")})`);
+  }
+  if (filter?.projectId) {
+    binds.push(filter.projectId);
+    conds.push(`d.project_id = ?${binds.length}`);
+  }
+  if (filter?.clientId) {
+    binds.push(filter.clientId);
+    conds.push(`d.client_id = ?${binds.length}`);
   }
   const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
   const { results } = await db.prepare(`${base}${where} ORDER BY d.created_at DESC`).bind(...binds).all<DocumentListRow>();
@@ -1012,6 +1151,8 @@ export interface CreateDocumentInput {
   division_id?: string | null;
   /** 発行した担当者（メンバー）名。ブラウザはログイン中メンバー名、APIは任意指定。 */
   issuer_person?: string | null;
+  /** 紐づくプロジェクト（案件）。 */
+  project_id?: string | null;
   lines: CreateLineInput[];
 }
 
@@ -1047,8 +1188,8 @@ export async function createDocument(
     db
       .prepare(
         `INSERT INTO documents
-         (id, type, number, status, issuer_id, client_id, issue_date, due_date, subject, notes, rounding, parent_id, subtotal, tax_total, total, division_id, issuer_person)
-         VALUES (?1,?2,?3,'draft',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)`
+         (id, type, number, status, issuer_id, client_id, issue_date, due_date, subject, notes, rounding, parent_id, subtotal, tax_total, total, division_id, issuer_person, project_id)
+         VALUES (?1,?2,?3,'draft',?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)`
       )
       .bind(
         id,
@@ -1066,7 +1207,8 @@ export async function createDocument(
         totals.tax_total,
         totals.total,
         input.division_id ?? null,
-        input.issuer_person ?? null
+        input.issuer_person ?? null,
+        input.project_id ?? null
       ),
   ];
 
@@ -1213,6 +1355,7 @@ export async function duplicateDocument(db: D1Database, id: string, actor = "loc
       notes: full.doc.notes,
       division_id: full.doc.division_id ?? null,
       issuer_person: full.doc.issuer_person ?? null,
+      project_id: full.doc.project_id ?? null,
       lines: linesOf(full),
     },
     actor
@@ -1246,6 +1389,7 @@ export async function createCorrection(db: D1Database, id: string, actor = "loca
       notes: full.doc.notes,
       division_id: full.doc.division_id ?? null,
       issuer_person: full.doc.issuer_person ?? null,
+      project_id: full.doc.project_id ?? null,
       parent_id: id,
       lines: linesOf(full),
     },
@@ -1275,6 +1419,7 @@ export async function convertDocument(
       notes: full.doc.notes,
       division_id: full.doc.division_id ?? null,
       issuer_person: full.doc.issuer_person ?? null,
+      project_id: full.doc.project_id ?? null,
       parent_id: full.doc.id,
       lines: linesOf(full),
     },

@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { DOCUMENT_ORDER, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, getDB, listClients, listDivisions, listDocuments, listIssuers } from "$lib/server/db";
+import { createDocument, getDB, listClients, listDivisions, listDocuments, listIssuers, listProjects } from "$lib/server/db";
 
 export const GET: RequestHandler = async ({ platform, url }) => {
   const db = getDB(platform);
@@ -25,6 +25,8 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     subject?: string;
     notes?: string;
     issuer_person?: string;
+    project_id?: string;
+    project_name?: string;
     lines?: { name: string; quantity?: number; unit?: string; unit_price?: number; tax_rate?: number; txn_date?: string }[];
   };
 
@@ -49,6 +51,14 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     const hit = divs.find((d) => d.name === body.division_name && (!d.issuer_id || d.issuer_id === issuerId));
     if (!hit) return json({ error: `division not found: ${body.division_name}` }, { status: 400 });
     divisionId = hit.id;
+  }
+
+  // project（id 優先、無ければ案件名で照合）
+  let projectId = body.project_id ?? null;
+  if (!projectId && body.project_name) {
+    const prj = (await listProjects(db)).find((p) => p.name === body.project_name);
+    if (!prj) return json({ error: `project not found: ${body.project_name}` }, { status: 400 });
+    projectId = prj.id;
   }
 
   // client (id or name; create if name not found)
@@ -91,6 +101,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
       division_id: divisionId,
       // API/AI 発行は担当者を任意指定（省略時は描画で issuers.person_name にフォールバック）。
       issuer_person: body.issuer_person ?? null,
+      project_id: projectId,
       lines,
     },
     "api"

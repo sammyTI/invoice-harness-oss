@@ -3,10 +3,14 @@
   export let data;
   export let form;
 
-  let clientSel = data.clients[0]?.id ?? "__new__";
-  let issuerId = data.issuers[0]?.id ?? "";
+  // プロジェクト指定あり: 売上側は案件の顧客をプリセット。支払側（発注/支払通知）は支払先を選ぶので固定しない。
+  const isCostType = data.type === "order" || data.type === "payment_notice";
+  let projectSel = data.project?.id ?? "";
+  let clientSel = (data.project && !isCostType ? data.project.client_id : "") || data.clients[0]?.id || "__new__";
+  let issuerId = data.project?.issuer_id || data.issuers[0]?.id || "";
   // 選んだ会社の区分＋全社共通の区分だけ表示
   $: divs = data.divisions.filter((d) => !d.issuer_id || d.issuer_id === issuerId);
+  const presetDivision = data.project?.division_id ?? "";
   let dirty = false;
   onMount(() => {
     const h = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -74,11 +78,22 @@
           {#each data.issuers as iss}<option value={iss.id}>{iss.name}</option>{/each}
         </select>
       </div>
-      <div class="field"><span class="lab">取引先</span>
+      <div class="field"><span class="lab">{isCostType ? "支払先（外注先・仕入先）" : "取引先"}</span>
         <select class="input" name="client_id" bind:value={clientSel} required>
           {#each data.clients as c}<option value={c.id}>{c.name} {c.honorific}</option>{/each}
           <option value="__new__">＋ 新規取引先を登録…</option>
         </select>
+      </div>
+      <div class="field"><span class="lab">プロジェクト</span>
+        {#if data.project}
+          <input type="hidden" name="project_id" value={data.project.id} />
+          <div class="prjfixed"><span class="prjchip">{data.project.name}</span><a class="mini" href={`/projects/${data.project.id}`}>案件へ</a></div>
+        {:else}
+          <select class="input" name="project_id" bind:value={projectSel}>
+            <option value="">（未割当）</option>
+            {#each data.projects as pr}<option value={pr.id}>{pr.name}（{pr.client_name}）</option>{/each}
+          </select>
+        {/if}
       </div>
       <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" value={today} required /></div>
       <div class="field"><span class="lab">支払期限</span><input class="input" type="date" name="due_date" /></div>
@@ -86,7 +101,7 @@
         <div class="field"><span class="lab">計上区分（部門）</span>
           <select class="input" name="division_id">
             <option value="">（未設定）</option>
-            {#each divs as dv}<option value={dv.id}>{dv.name}</option>{/each}
+            {#each divs as dv}<option value={dv.id} selected={dv.id === presetDivision}>{dv.name}</option>{/each}
           </select>
         </div>
       {/if}
@@ -177,4 +192,7 @@
   .insert { width: auto; font-size: 13px; padding: 6px 10px; }
   .newclient { background: var(--primary-soft); border: 1px solid #cfe0fb; border-radius: 10px; padding: 14px 16px; margin: 4px 0 14px; }
   .nc-head { font-size: 12px; font-weight: 700; color: var(--primary-d); margin-bottom: 10px; }
+  .prjfixed { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+  .prjchip { display: inline-block; background: var(--primary-soft); color: var(--primary-d); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; }
+  .mini { font-size: 12px; }
 </style>

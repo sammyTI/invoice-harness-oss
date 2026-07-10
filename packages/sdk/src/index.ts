@@ -36,11 +36,27 @@ export interface CreateDocumentInput {
   issuer_person?: string;
   division_id?: string;
   division_name?: string;
+  /** 紐づけるプロジェクト（案件）。 */
+  project_id?: string;
+  project_name?: string;
   issue_date?: string;
   due_date?: string;
   subject?: string;
   notes?: string;
   lines: LineInput[];
+}
+
+export interface ProjectInput {
+  name: string;
+  client_name?: string;
+  client_id?: string;
+  issuer_name?: string;
+  division_name?: string;
+  person?: string;
+  start_date?: string;
+  end_date?: string;
+  detail?: string;
+  status?: "active" | "done";
 }
 
 export interface PaymentInput {
@@ -188,6 +204,16 @@ export class InvoiceHarness {
     create: (input: ItemInput) => this.req<{ ok: true }>("POST", `/api/items`, input),
     update: (id: string, input: Partial<ItemInput>) => this.req<{ ok: true }>("PUT", `/api/items/${id}`, input),
     remove: (id: string) => this.req<{ ok: true }>("DELETE", `/api/items/${id}`),
+  };
+
+  /** プロジェクト（案件）：顧客配下の案件に帳票を紐づけ、粗利を管理 */
+  projects = {
+    list: (client?: string) =>
+      this.req<{ projects: unknown[] }>("GET", `/api/projects${client ? `?client=${encodeURIComponent(client)}` : ""}`),
+    get: (id: string) => this.req("GET", `/api/projects/${id}`),
+    create: (input: ProjectInput) => this.req<{ id: string; ok: true }>("POST", `/api/projects`, input),
+    update: (id: string, input: Partial<ProjectInput>) => this.req<{ ok: true }>("PUT", `/api/projects/${id}`, input),
+    remove: (id: string) => this.req<{ ok: true }>("DELETE", `/api/projects/${id}`),
   };
 
   /** 計上区分（部門） */

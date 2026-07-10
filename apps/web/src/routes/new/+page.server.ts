@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, getDB, getDefaultNoteBody, getDocDefaultNotes, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates } from "$lib/server/db";
+import { createDocument, getDB, getDefaultNoteBody, getDocDefaultNotes, getProject, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates, listProjects } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
@@ -22,8 +22,13 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   const type = normType(url.searchParams.get("type"));
   const allowed = await allowedIssuerIds(db, locals.user);
+  // ?project= 指定時はそのプロジェクトに紐づけて作成（顧客もプリセット。売上側=案件の顧客、支払側=支払先を選ぶ）
+  const projectId = url.searchParams.get("project");
+  const project = projectId ? await getProject(db, projectId) : null;
   return {
     type,
+    project: project ? { id: project.id, name: project.name, client_id: project.client_id, issuer_id: project.issuer_id, division_id: project.division_id } : null,
+    projects: (await listProjects(db)).filter((pr) => pr.status !== "done"),
     label: DOCUMENT_LABELS[type],
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     clients: await listClients(db),
@@ -99,10 +104,11 @@ export const actions: Actions = {
       return fail(400, { error: "発行元・取引先・発行日・明細1行以上は必須です。" });
     }
 
+    const project_id = String(fd.get("project_id") ?? "") || null;
     const id = await createDocument(
       db,
       // 発行者＝ログイン中メンバー名を帳票にスナップショット（「担当：」に表示）。
-      { type, issuer_id, client_id, issue_date, due_date, subject, notes, division_id, issuer_person: locals.user?.name ?? null, lines },
+      { type, issuer_id, client_id, issue_date, due_date, subject, notes, division_id, project_id, issuer_person: locals.user?.name ?? null, lines },
       getActor({ request, locals })
     );
 

@@ -234,6 +234,59 @@ server.tool("set_default_note_template", "この備考テンプレートを既�
 // ---------- 帳票の複製 ----------
 server.tool("duplicate_document", "帳票を複製（同種別・新番号・下書き）。id は list_documents で取得。新IDを返す。", { id: z.string() }, async ({ id }) => ok(await api(`/api/documents/${id}/duplicate`, { method: "POST" })));
 
+// ---------- プロジェクト（案件）管理 ----------
+server.tool(
+  "list_projects",
+  "プロジェクト（案件）一覧を取得。顧客名・状態・請求合計/支払合計/粗利つき。client で顧客名絞り込み。",
+  { client: z.string().optional().describe("顧客名で絞り込み") },
+  async ({ client }) => ok(await api(`/api/projects${client ? `?client=${encodeURIComponent(client)}` : ""}`))
+);
+
+server.tool(
+  "get_project",
+  "プロジェクト詳細（収支＋紐づく帳票一覧）。id は list_projects で取得。",
+  { id: z.string() },
+  async ({ id }) => ok(await api(`/api/projects/${id}`))
+);
+
+server.tool(
+  "create_project",
+  "プロジェクト（案件）を新規作成。顧客の配下に案件を作り、請求書・見積書・支払（発注/支払通知）を紐づけて粗利を管理する。",
+  {
+    name: z.string().describe("案件名"),
+    client_name: z.string().describe("顧客名（取引先に登録済みであること）"),
+    issuer_name: z.string().optional().describe("自社（発行元）の会社名"),
+    division_name: z.string().optional().describe("計上区分（部門）名"),
+    person: z.string().optional().describe("担当者名"),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
+    detail: z.string().optional(),
+  },
+  async (body) => ok(await api(`/api/projects`, { method: "POST", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "update_project",
+  "プロジェクトを更新（部分指定・未指定は現状維持）。status は active(進行中)/done(完了)。",
+  {
+    id: z.string(),
+    name: z.string().optional(),
+    status: z.enum(["active", "done"]).optional(),
+    person: z.string().optional(),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
+    detail: z.string().optional(),
+  },
+  async ({ id, ...body }) => ok(await api(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }))
+);
+
+server.tool(
+  "delete_project",
+  "プロジェクトを削除（帳票は残り、割当だけ外れる）。",
+  { id: z.string() },
+  async ({ id }) => ok(await api(`/api/projects/${id}`, { method: "DELETE" }))
+);
+
 // ---------- メンバー（チーム）管理 ----------
 server.tool("list_members", "メンバー一覧を取得（氏名・メール・権限・状態）。", {}, async () => ok(await api(`/api/members`)));
 
@@ -393,6 +446,7 @@ server.tool(
     client_name: z.string(),
     issuer_name: z.string().optional().describe("発行元（会社）の名前。複数社運用時に指定。省略時は先頭の会社"),
     division_name: z.string().optional().describe("計上区分（部門）の名前"),
+    project_name: z.string().optional().describe("紐づけるプロジェクト（案件）名"),
     subject: z.string().optional(),
     notes: z.string().optional(),
     due_date: z.string().optional(),

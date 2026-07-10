@@ -138,6 +138,8 @@ export interface DocumentRecord {
   share_token?: string | null;
   /** 発行した担当者（メンバー）名のスナップショット。無い場合は描画時に issuers.person_name へフォールバック。 */
   issuer_person?: string | null;
+  /** 紐づくプロジェクト（案件）。NULL=未割当。 */
+  project_id?: string | null;
 }
 
 export interface Settings {

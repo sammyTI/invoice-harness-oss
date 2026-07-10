@@ -21,7 +21,7 @@
           <tbody>
             {#each data.clients as c}
               <tr>
-                <td><b>{c.name}</b> {c.honorific}</td>
+                <td><a class="cnamelink" href={`/clients/${c.id}`}><b>{c.name}</b></a> {c.honorific}</td>
                 <td>
                   {#each (data.catMap[c.id] ?? []) as cat}<span class="catchip">{cat}</span>{:else}<span class="muted">—</span>{/each}
                 </td>

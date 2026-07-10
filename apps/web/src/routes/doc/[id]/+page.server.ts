@@ -2,6 +2,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { error, fail, redirect } from "@sveltejs/kit";
 import { DOCUMENT_FLOW, DOCUMENT_LABELS, formatYen, type DocumentType } from "@invoice-harness/shared";
 import {
+  assignDocumentProject,
   clearShareToken,
   cancelDocument,
   convertDocument,
@@ -14,8 +15,10 @@ import {
   getDB,
   getDocument,
   getEmailTemplate,
+  getProject,
   getRelated,
   listDivisions,
+  listProjects,
   lockDocument,
   logEmail,
   markPaid,
@@ -37,7 +40,16 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
   const divisionName = full.doc.division_id
     ? (await listDivisions(db)).find((d) => d.id === full.doc.division_id)?.name ?? null
     : null;
-  return { full, related, mailEnabled, shareUrl, divisionName };
+  const project = full.doc.project_id ? await getProject(db, full.doc.project_id) : null;
+  return {
+    full,
+    related,
+    mailEnabled,
+    shareUrl,
+    divisionName,
+    project: project ? { id: project.id, name: project.name } : null,
+    projects: (await listProjects(db)).filter((pr) => pr.status !== "done").map((pr) => ({ id: pr.id, name: pr.name, client_name: pr.client_name })),
+  };
 };
 
 export const actions: Actions = {
@@ -47,6 +59,15 @@ export const actions: Actions = {
     const newId = await duplicateDocument(db, params.id, getActor({ request, locals }));
     if (!newId) throw error(404, "複製元が見つかりません");
     throw redirect(303, `/doc/${newId}/edit`);
+  },
+
+  assignProject: async ({ params, platform, request, locals }) => {
+    const db = getDB(platform);
+    await assertDocAccess(db, locals.user, params.id);
+    const fd = await request.formData();
+    const projectId = String(fd.get("project_id") ?? "") || null;
+    await assignDocumentProject(db, params.id, projectId);
+    return { projectAssigned: "ok" as const };
   },
 
   convert: async ({ params, platform, request, locals }) => {
