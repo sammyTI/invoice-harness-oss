@@ -19,9 +19,11 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
   const issuerDocs = issuerId ? allDocs.filter((d) => d.issuer_id === issuerId) : allDocs;
 
-  // 部門（計上区分）フィルタ。会社×部門で月次推移を見られる。
+  // 部門（計上区分）フィルタ。複数社では会社を選択したときだけ表示（会社×部門で月次推移を見る）。
+  // 1社のみの環境は常にその会社扱いで表示する。
   const allDivisions = await listDivisions(db);
-  const divChips = allDivisions.filter((d) => !d.issuer_id || !issuerId || d.issuer_id === issuerId);
+  const chipIssuer = issuerId || (issuers.length === 1 ? issuers[0]?.id ?? "" : "");
+  const divChips = chipIssuer ? allDivisions.filter((d) => !d.issuer_id || d.issuer_id === chipIssuer) : [];
   const divParam = url.searchParams.get("div") ?? "";
   const divisionId = divChips.some((d) => d.id === divParam) ? divParam : "";
   const docs = divisionId ? issuerDocs.filter((d) => d.division_id === divisionId) : issuerDocs;
