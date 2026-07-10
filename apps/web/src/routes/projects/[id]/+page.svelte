@@ -3,6 +3,13 @@
   export let data;
   export let form;
   $: p = data.project;
+  // 状態: 提案中 → 進行中 → 完了
+  const ST = {
+    proposed: { label: "提案中", cls: "chip-sent" },
+    active: { label: "進行中", cls: "chip-issued" },
+    done: { label: "完了", cls: "chip-paid" },
+  };
+  const st = (s) => ST[s] ?? ST.active;
   // 売上系（見積/納品/請求/領収）と支払系（発注/支払通知）に分けて表示
   $: salesDocs = data.docs.filter((d) => ["estimate", "delivery_note", "invoice", "receipt"].includes(d.type));
   $: costDocs = data.docs.filter((d) => ["order", "payment_notice"].includes(d.type));
@@ -12,7 +19,7 @@
 <div class="page-head">
   <div class="ttl">
     <a class="back" href="/projects" aria-label="一覧へ">←</a>
-    <h1 class="page-title">{p.name}<span class="chip {p.status === 'done' ? 'chip-paid' : 'chip-issued'}">{p.status === "done" ? "完了" : "進行中"}</span></h1>
+    <h1 class="page-title">{p.name}<span class="chip {st(p.status).cls}">{st(p.status).label}</span></h1>
   </div>
   <div class="acts">
     <button class="btn btn-quiet btn-sm" type="button" on:click={() => (editing = !editing)}>{editing ? "編集を閉じる" : "編集"}</button>
@@ -36,7 +43,11 @@
         <select class="input" name="client_id">{#each data.clients as c}<option value={c.id} selected={c.id === p.client_id}>{c.name}</option>{/each}</select>
       </div>
       <div class="field"><span class="lab">状態</span>
-        <select class="input" name="status"><option value="active" selected={p.status !== "done"}>進行中</option><option value="done" selected={p.status === "done"}>完了</option></select>
+        <select class="input" name="status">
+          <option value="proposed" selected={p.status === "proposed"}>提案中</option>
+          <option value="active" selected={p.status === "active"}>進行中</option>
+          <option value="done" selected={p.status === "done"}>完了</option>
+        </select>
       </div>
       <div class="field"><span class="lab">計上区分（部門）</span>
         <select class="input" name="division_id"><option value="">（未設定）</option>{#each data.divisions as d}<option value={d.id} selected={d.id === p.division_id}>{d.name}</option>{/each}</select>
@@ -46,7 +57,10 @@
           <select class="input" name="issuer_id"><option value="">（未指定）</option>{#each data.issuers as i}<option value={i.id} selected={i.id === p.issuer_id}>{i.name}</option>{/each}</select>
         </div>
       {/if}
-      <div class="field"><span class="lab">担当者</span><input class="input" name="person" value={p.person ?? ""} /></div>
+      <div class="field"><span class="lab">担当者</span>
+        <input class="input" name="person" value={p.person ?? ""} list="memberlist" placeholder="メンバーから選択 or 自由入力" />
+        <datalist id="memberlist">{#each data.members as m}<option value={m}></option>{/each}</datalist>
+      </div>
       <div class="field"><span class="lab">開始日</span><input class="input" type="date" name="start_date" value={p.start_date ?? ""} /></div>
       <div class="field"><span class="lab">完了日</span><input class="input" type="date" name="end_date" value={p.end_date ?? ""} /></div>
     </div>

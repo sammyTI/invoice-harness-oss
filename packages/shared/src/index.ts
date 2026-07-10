@@ -326,10 +326,14 @@ export interface Lifecycle {
 export function lifecycle(doc: {
   status: string;
   locked?: number | boolean;
+  type?: string;
 }): Lifecycle {
+  // 支払系（発注書・支払通知書）は「入金」ではなく「支払」の言葉で表す
+  const isCost = doc.type === "order" || doc.type === "payment_notice";
+  const w = isCost ? "支払" : "入金";
   if (doc.status === "canceled") return { key: "canceled", label: "取消", cls: "chip-canceled" };
-  if (doc.status === "paid") return { key: "paid", label: "入金済", cls: "chip-paid" };
-  if (doc.status === "sent") return { key: "sent", label: "送付済・入金待ち", cls: "chip-sent" };
+  if (doc.status === "paid") return { key: "paid", label: `${w}済`, cls: "chip-paid" };
+  if (doc.status === "sent") return { key: "sent", label: `送付済・${w}待ち`, cls: "chip-sent" };
   if (doc.locked) return { key: "issued", label: "発行済・送付待ち", cls: "chip-issued" };
   return { key: "draft", label: "下書き（未発行）", cls: "chip-draft" };
 }

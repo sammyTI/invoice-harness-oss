@@ -1,7 +1,11 @@
 <script>
   import { enhance } from "$app/forms";
+  import { onMount } from "svelte";
   export let data;
   export let form;
+
+  let inviteDlg;
+  onMount(() => { if (form?.error) inviteDlg?.showModal(); });
 
   let editId = null;
   let copied = false;
@@ -19,7 +23,10 @@
   }
 </script>
 
-<div class="page-head"><h1 class="page-title">メンバー</h1></div>
+<div class="page-head">
+  <h1 class="page-title">メンバー</h1>
+  <button class="btn btn-primary" type="button" on:click={() => inviteDlg.showModal()}>＋ メンバーを招待</button>
+</div>
 
 <p class="note">
   招待すると<b>初期パスワード</b>を発行します。{#if data.mailEnabled}メール連携済みのため本人にメール送信されます。{:else}メール未連携なので、表示される<b>ログイン情報をコピー</b>して本人にお渡しください。{/if}
@@ -129,9 +136,15 @@
       </section>
     {/if}
   </div>
+</div>
 
-  <form class="section" method="POST" action="?/invite">
-    <div class="section-head"><h2>メンバーを招待</h2></div>
+<dialog class="modal" bind:this={inviteDlg}>
+  <div class="modal-head">
+    <h2>メンバーを招待</h2>
+    <button class="modal-x" type="button" on:click={() => inviteDlg.close()} aria-label="閉じる">×</button>
+  </div>
+  <form class="modal-body" method="POST" action="?/invite">
+    {#if form?.error}<p class="flash-err">{form.error}</p>{/if}
     <div class="field"><span class="lab">名前</span><input class="input" name="name" required /></div>
     <div class="field"><span class="lab">メール</span><input class="input" type="email" name="email" required /></div>
     <div class="field"><span class="lab">権限</span>
@@ -139,15 +152,14 @@
     </div>
     <button class="btn btn-primary" type="submit" style="width:100%">初期パスワードを発行</button>
   </form>
-</div>
+</dialog>
 
 <style>
   .note { background: var(--primary-soft); border: 1px solid #cfe0fb; color: var(--primary-d); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; }
   .cred { background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
   .cred-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .cred-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 13px; white-space: pre-wrap; margin: 0 0 10px; }
-  .layout { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; align-items: start; }
-  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .layout { display: block; }
   .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
   .rowacts { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .eform { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; padding: 4px 0; }

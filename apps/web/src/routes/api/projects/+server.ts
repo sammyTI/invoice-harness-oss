@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
   const b = (await request.json().catch(() => ({}))) as {
     name?: string; client_id?: string; client_name?: string;
     issuer_name?: string; division_name?: string;
-    detail?: string; person?: string; start_date?: string; end_date?: string;
+    detail?: string; person?: string; start_date?: string; end_date?: string; status?: string;
   };
   const name = (b.name ?? "").trim();
   if (!name) return json({ error: "name is required" }, { status: 400 });
@@ -39,6 +39,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     division_id: divisionId,
     detail: b.detail?.trim() || null,
     person: b.person?.trim() || null,
+    status: b.status,
     start_date: b.start_date || null,
     end_date: b.end_date || null,
   });

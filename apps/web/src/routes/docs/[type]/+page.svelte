@@ -108,8 +108,11 @@
                   <td>
                     <a class="cname" href={`/doc/${d.id}`}>{d.client_name}</a>
                     <div class="num muted docno">{d.number}</div>
-                    {#if d.division_name || d.project_name}
-                      <div class="dmeta">{#if d.division_name}<span class="mchip">{d.division_name}</span>{/if}{#if d.project_name}<span class="mchip prj">{d.project_name}</span>{/if}</div>
+                    {#if d.division_name || d.project_division_name || d.project_name}
+                      <div class="dmeta">
+                        {#if d.division_name || d.project_division_name}<span class="mchip">{d.division_name ?? d.project_division_name}</span>{/if}
+                        {#if d.project_name}<span class="mchip prj">{d.project_name}</span>{/if}
+                      </div>
                     {/if}
                   </td>
                   <td class="r num amt">{formatYen(d.total)}</td>

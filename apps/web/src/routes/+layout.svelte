@@ -93,6 +93,7 @@
       {/if}
 
       <div class="sec">レポート・会計</div>
+      <a class:active={active("/monthly")} href="/monthly">月次入出金</a>
       <a class:active={active("/reports/tax")} href="/reports/tax">消費税集計表</a>
       <a class:active={active("/reports/aging")} href="/reports/aging">売掛金年齢表</a>
       <a href="/reports/export" data-sveltekit-reload>CSVエクスポート</a>

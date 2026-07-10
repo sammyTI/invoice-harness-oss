@@ -284,6 +284,10 @@ export async function getProject(db: D1Database, id: string): Promise<ProjectLis
   return { ...row, profit: row.revenue - row.expense };
 }
 
+// 状態: proposed(提案中) → active(進行中) → done(完了)
+const PROJECT_STATUSES = ["proposed", "active", "done"];
+const normStatus = (s?: string | null) => (s && PROJECT_STATUSES.includes(s) ? s : "active");
+
 export async function createProject(db: D1Database, f: ProjectInput): Promise<string> {
   const id = crypto.randomUUID();
   await db
@@ -293,7 +297,7 @@ export async function createProject(db: D1Database, f: ProjectInput): Promise<st
     )
     .bind(
       id, f.name, f.client_id, f.issuer_id ?? null, f.division_id ?? null, f.detail ?? null,
-      f.status === "done" ? "done" : "active", f.start_date ?? null, f.end_date ?? null, f.person ?? null
+      normStatus(f.status), f.start_date ?? null, f.end_date ?? null, f.person ?? null
     )
     .run();
   return id;
@@ -306,7 +310,7 @@ export async function updateProject(db: D1Database, id: string, f: ProjectInput)
     )
     .bind(
       id, f.name, f.client_id, f.issuer_id ?? null, f.division_id ?? null, f.detail ?? null,
-      f.status === "done" ? "done" : "active", f.start_date ?? null, f.end_date ?? null, f.person ?? null
+      normStatus(f.status), f.start_date ?? null, f.end_date ?? null, f.person ?? null
     )
     .run();
 }
@@ -1046,12 +1050,24 @@ export interface DocumentListRow {
   due_date: string | null;
   locked: number;
   total: number;
+  subject: string | null;
+  paid_at: string | null;
   client_name: string;
   issuer_id: string;
   division_id: string | null;
   division_name: string | null;
   project_id: string | null;
   project_name: string | null;
+  /** プロジェクト側の計上区分（帳票の区分が未設定のときのフォールバック集計に使う）。 */
+  project_division_id: string | null;
+  project_division_name: string | null;
+}
+
+/** 集計に使う実効の計上区分（帳票に設定があれば帳票優先、無ければプロジェクトの区分）。 */
+export function effectiveDivision(d: Pick<DocumentListRow, "division_id" | "division_name" | "project_division_id" | "project_division_name">): { id: string | null; name: string | null } {
+  return d.division_id
+    ? { id: d.division_id, name: d.division_name }
+    : { id: d.project_division_id, name: d.project_division_name };
 }
 
 export async function listDocuments(
@@ -1060,11 +1076,13 @@ export async function listDocuments(
   allowed?: string[] | null,
   filter?: { projectId?: string; clientId?: string }
 ): Promise<DocumentListRow[]> {
-  const base = `SELECT d.id, d.type, d.number, d.status, d.issue_date, d.due_date, d.locked, d.total, c.name AS client_name,
-       d.issuer_id, d.division_id, dv.name AS division_name, d.project_id, p.name AS project_name
+  const base = `SELECT d.id, d.type, d.number, d.status, d.issue_date, d.due_date, d.locked, d.total, d.subject, d.paid_at, c.name AS client_name,
+       d.issuer_id, d.division_id, dv.name AS division_name, d.project_id, p.name AS project_name,
+       p.division_id AS project_division_id, dv2.name AS project_division_name
        FROM documents d JOIN clients c ON c.id = d.client_id
        LEFT JOIN divisions dv ON dv.id = d.division_id
-       LEFT JOIN projects p ON p.id = d.project_id`;
+       LEFT JOIN projects p ON p.id = d.project_id
+       LEFT JOIN divisions dv2 ON dv2.id = p.division_id`;
   const conds: string[] = [];
   const binds: string[] = [];
   if (type) {

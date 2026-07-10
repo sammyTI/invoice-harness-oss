@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail, redirect } from "@sveltejs/kit";
-import { deleteProject, getDB, getProject, listClients, listDivisions, listDocuments, listIssuers, updateProject } from "$lib/server/db";
+import { deleteProject, getDB, getProject, listClients, listDivisions, listDocuments, listIssuers, listMembers, updateProject } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
 export const load: PageServerLoad = async ({ platform, params, locals }) => {
@@ -16,6 +16,7 @@ export const load: PageServerLoad = async ({ platform, params, locals }) => {
     clients: await listClients(db),
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     divisions: (await listDivisions(db)).filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id)),
+    members: (await listMembers(db)).filter((m) => m.status === "active").map((m) => m.name),
   };
 };
 

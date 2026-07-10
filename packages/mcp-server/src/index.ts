@@ -256,8 +256,9 @@ server.tool(
     name: z.string().describe("案件名"),
     client_name: z.string().describe("顧客名（取引先に登録済みであること）"),
     issuer_name: z.string().optional().describe("自社（発行元）の会社名"),
-    division_name: z.string().optional().describe("計上区分（部門）名"),
+    division_name: z.string().optional().describe("計上区分（部門）名。案件に設定すると、区分未設定の帳票はこの区分で集計される"),
     person: z.string().optional().describe("担当者名"),
+    status: z.enum(["proposed", "active", "done"]).optional().describe("提案中/進行中/完了（既定 進行中）"),
     start_date: z.string().optional(),
     end_date: z.string().optional(),
     detail: z.string().optional(),
@@ -267,11 +268,11 @@ server.tool(
 
 server.tool(
   "update_project",
-  "プロジェクトを更新（部分指定・未指定は現状維持）。status は active(進行中)/done(完了)。",
+  "プロジェクトを更新（部分指定・未指定は現状維持）。status は proposed(提案中)/active(進行中)/done(完了)。",
   {
     id: z.string(),
     name: z.string().optional(),
-    status: z.enum(["active", "done"]).optional(),
+    status: z.enum(["proposed", "active", "done"]).optional(),
     person: z.string().optional(),
     start_date: z.string().optional(),
     end_date: z.string().optional(),

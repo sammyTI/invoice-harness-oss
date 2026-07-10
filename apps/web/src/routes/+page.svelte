@@ -102,7 +102,10 @@
   <div class="card pl">
     <div class="pl-head">
       <h2>部門別損益（{data.fyLabel}）</h2>
-      <a class="btn btn-quiet btn-sm" href="/settings/divisions">区分を編集</a>
+      <div class="pl-acts">
+        <a class="btn btn-quiet btn-sm" href="/settings/targets">目標を設定</a>
+        <a class="btn btn-quiet btn-sm" href="/settings/divisions">区分を編集</a>
+      </div>
     </div>
     <div class="dtable">
       <div class="drow dhead" class:witht={data.hasDivTargets}><span>区分</span><span class="r">売上</span><span class="r">費用</span><span class="r">利益</span>{#if data.hasDivTargets}<span class="r">目標</span><span class="r">達成率</span>{/if}<span class="dbarcell"></span></div>
@@ -186,6 +189,7 @@
 
   .pl { padding: 18px 20px; margin: 16px 0; }
   .pl-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .pl-acts { display: flex; gap: 8px; }
   .pl-head h2 { font-size: 15px; margin: 0; }
   .legend { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .legend .scale { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line); color: var(--ink-2); font-variant-numeric: tabular-nums; }

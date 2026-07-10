@@ -47,7 +47,8 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const divMap = new Map<string, { revenue: number; expense: number }>();
   for (const d of inFy) {
     if (!REVENUE.has(d.type) && !EXPENSE.has(d.type)) continue;
-    const k = d.division_name ?? "未設定";
+    // 実効区分（帳票の区分が未設定ならプロジェクトの区分にフォールバック）
+    const k = d.division_name ?? d.project_division_name ?? "未設定";
     const e = divMap.get(k) ?? { revenue: 0, expense: 0 };
     if (REVENUE.has(d.type)) e.revenue += d.total;
     if (EXPENSE.has(d.type)) e.expense += d.total;

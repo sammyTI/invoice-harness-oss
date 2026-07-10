@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
-import { createProject, getDB, listClients, listDivisions, listIssuers, listProjects } from "$lib/server/db";
+import { createProject, getDB, listClients, listDivisions, listIssuers, listMembers, listProjects } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
         (p.person ?? "").toLowerCase().includes(needle)
     );
   }
-  if (st === "active" || st === "done") projects = projects.filter((p) => p.status === st);
+  if (st === "proposed" || st === "active" || st === "done") projects = projects.filter((p) => p.status === st);
 
   return {
     q,
@@ -29,6 +29,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     clients: await listClients(db),
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     divisions: (await listDivisions(db)).filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id)),
+    members: (await listMembers(db)).filter((m) => m.status === "active").map((m) => m.name),
     presetClient: url.searchParams.get("client") ?? "",
   };
 };
@@ -46,6 +47,7 @@ export const actions: Actions = {
       issuer_id: String(fd.get("issuer_id") ?? "") || null,
       division_id: String(fd.get("division_id") ?? "") || null,
       person: String(fd.get("person") ?? "").trim() || null,
+      status: String(fd.get("status") ?? "active"),
       start_date: String(fd.get("start_date") ?? "") || null,
       detail: String(fd.get("detail") ?? "").trim() || null,
     });

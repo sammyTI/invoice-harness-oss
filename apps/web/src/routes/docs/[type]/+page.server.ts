@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { deleteDocument, DocumentLockedError, getDB, listDivisions, listDocuments, listProjects, markSent } from "$lib/server/db";
+import { deleteDocument, DocumentLockedError, effectiveDivision, getDB, listDivisions, listDocuments, listProjects, markSent } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, assertDocAccess, canAccessIssuer } from "$lib/server/access";
 
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
           d.number.toLowerCase().includes(q.toLowerCase())
       )
     : loaded;
-  if (div) all = all.filter((d) => d.division_id === div);
+  if (div) all = all.filter((d) => effectiveDivision(d).id === div);
   if (prj) all = all.filter((d) => d.project_id === prj);
   if (from) all = all.filter((d) => d.issue_date >= from);
   if (to) all = all.filter((d) => d.issue_date <= to);

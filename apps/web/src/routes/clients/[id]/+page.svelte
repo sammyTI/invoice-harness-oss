@@ -2,6 +2,12 @@
   import { DOCUMENT_SHORT, formatYen, lifecycle } from "@invoice-harness/shared";
   export let data;
   $: c = data.client;
+  const ST = {
+    proposed: { label: "提案中", cls: "chip-sent" },
+    active: { label: "進行中", cls: "chip-issued" },
+    done: { label: "完了", cls: "chip-paid" },
+  };
+  const st = (s) => ST[s] ?? ST.active;
   $: salesDocs = data.docs.filter((d) => ["estimate", "delivery_note", "invoice", "receipt"].includes(d.type));
   $: costDocs = data.docs.filter((d) => ["order", "payment_notice"].includes(d.type));
 </script>
@@ -44,7 +50,7 @@
         {#each data.projects as p}
           <tr class:done={p.status === "done"}>
             <td><a class="pname" href={`/projects/${p.id}`}>{p.name}</a></td>
-            <td><span class="chip {p.status === 'done' ? 'chip-paid' : 'chip-issued'}">{p.status === "done" ? "完了" : "進行中"}</span></td>
+            <td><span class="chip {st(p.status).cls}">{st(p.status).label}</span></td>
             <td class="num">{p.start_date ?? "—"}{p.end_date ? ` 〜 ${p.end_date}` : ""}</td>
             <td class="r num">{formatYen(p.revenue)}</td>
             <td class="r num">{formatYen(p.expense)}</td>

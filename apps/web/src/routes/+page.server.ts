@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets } from "$lib/server/db";
+import { effectiveDivision, getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const divChips = chipIssuer ? allDivisions.filter((d) => !d.issuer_id || d.issuer_id === chipIssuer) : [];
   const divParam = url.searchParams.get("div") ?? "";
   const divisionId = divChips.some((d) => d.id === divParam) ? divParam : "";
-  const docs = divisionId ? issuerDocs.filter((d) => d.division_id === divisionId) : issuerDocs;
+  // 実効区分（帳票の区分が未設定ならプロジェクトの区分）で絞り込み・集計する
+  const docs = divisionId ? issuerDocs.filter((d) => effectiveDivision(d).id === divisionId) : issuerDocs;
 
   // 決算月の決定:
   //  - 会社を選択 → その会社の決算月（未設定なら全体設定）
@@ -88,8 +89,9 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const divMap = new Map<string, { name: string; revenue: number; expense: number }>();
   for (const d of inFy) {
     if (!REVENUE_TYPES.has(d.type) && !EXPENSE_TYPES.has(d.type)) continue;
-    const key = d.division_id ?? "__none__";
-    if (!divMap.has(key)) divMap.set(key, { name: d.division_name ?? "未設定", revenue: 0, expense: 0 });
+    const eff = effectiveDivision(d);
+    const key = eff.id ?? "__none__";
+    if (!divMap.has(key)) divMap.set(key, { name: eff.name ?? "未設定", revenue: 0, expense: 0 });
     const e = divMap.get(key)!;
     if (REVENUE_TYPES.has(d.type)) e.revenue += d.total;
     if (EXPENSE_TYPES.has(d.type)) e.expense += d.total;
