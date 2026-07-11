@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { createApiToken, deleteApiToken, getDB, getMailConfig, listApiTokens, logEmail, setMailConfig } from "$lib/server/db";
+import { createApiToken, deleteApiToken, emailUsage, getDB, getMailConfig, listApiTokens, logEmail, setMailConfig } from "$lib/server/db";
 import { sendEmail } from "$lib/server/email";
 
 /** APIキーの末尾4文字だけ見せるマスク（フルキーはクライアントに返さない）。 */
@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
   const mail = await getMailConfig(db, platform?.env);
   return {
     tokens: await listApiTokens(db),
+    usage: await emailUsage(db),
     // テスト送信の宛先既定値（ログイン中ユーザーのメール）
     myEmail: locals.user?.email ?? "",
     mail: {

@@ -674,6 +674,25 @@ export async function listEmailLog(db: D1Database, limit = 200): Promise<EmailLo
   return results ?? [];
 }
 
+/** メール送信数（成功のみ）。Resend無料枠(100/日・3,000/月)との対比用。このアプリからの送信分のみ。 */
+export async function emailUsage(db: D1Database): Promise<{ today: number; month: number }> {
+  // created_at は logEmail が new Date().toISOString() で書く ISO文字列（例 2026-07-11T12:34:56.789Z）。
+  // 前方一致で当日・当月を絞り込む（UTC基準）。
+  const now = new Date();
+  const dayPrefix = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const monthPrefix = now.toISOString().slice(0, 7); // YYYY-MM
+  const row = await db
+    .prepare(
+      `SELECT
+        COALESCE(SUM(CASE WHEN created_at LIKE ?1 || '%' THEN 1 ELSE 0 END), 0) AS today,
+        COALESCE(SUM(CASE WHEN created_at LIKE ?2 || '%' THEN 1 ELSE 0 END), 0) AS month
+       FROM email_log WHERE ok = 1`
+    )
+    .bind(dayPrefix, monthPrefix)
+    .first<{ today: number; month: number }>();
+  return { today: row?.today ?? 0, month: row?.month ?? 0 };
+}
+
 // ---------- バックアップ（JSON 入出力） ----------
 
 const BACKUP_TABLES = [

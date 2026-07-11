@@ -13,7 +13,7 @@ export const actions: Actions = {
     const key = String(fd.get("key") ?? "");
     const subject = String(fd.get("subject") ?? "");
     const body = String(fd.get("body") ?? "");
-    if (key !== "send" && key !== "dunning") return { ok: false };
+    if (key !== "send" && key !== "dunning" && key !== "invite") return { ok: false };
     await updateEmailTemplate(db, key, subject, body);
     return { ok: true, key };
   },

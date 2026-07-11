@@ -1,7 +1,7 @@
 <script>
   export let data;
   export let form;
-  const LABELS = { send: "帳票送付メール", dunning: "未入金 催促メール" };
+  const LABELS = { send: "帳票送付メール", dunning: "未入金 催促メール", invite: "メンバー招待（ログイン情報のご案内）" };
 </script>
 
 <div class="page-head"><h1 class="page-title">メールテンプレート</h1></div>
@@ -11,6 +11,9 @@
 {#each data.templates as t}
   <form class="section" method="POST" action="?/save">
     <div class="section-head"><h2>{LABELS[t.key] ?? t.key}</h2></div>
+    {#if t.key === "invite"}
+      <p class="hint">差し込み変数：<code>{"{name}"}</code>=招待した人の名前 <code>{"{email}"}</code>=ログインメールアドレス <code>{"{password}"}</code>=初期パスワード <code>{"{link}"}</code>=ログインURL（本文中でボタンになる）</p>
+    {/if}
     <input type="hidden" name="key" value={t.key} />
     <div class="field"><span class="lab">件名</span><input class="input" name="subject" value={t.subject} /></div>
     <div class="field"><span class="lab">本文</span><textarea class="input" name="body" rows="8">{t.body}</textarea></div>

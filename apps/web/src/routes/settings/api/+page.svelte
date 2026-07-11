@@ -1,6 +1,19 @@
 <script>
   export let data;
   export let form;
+
+  // 使用率(%)からバーの塗り色を決める。80%以上=amber・100%以上=red・通常=grad。
+  function barColor(used, limit) {
+    const pct = limit > 0 ? (used / limit) * 100 : 0;
+    if (pct >= 100) return "var(--red)";
+    if (pct >= 80) return "var(--amber)";
+    return "var(--grad)";
+  }
+  // バー幅(%)。上限は100%でクランプ。
+  function barWidth(used, limit) {
+    const pct = limit > 0 ? (used / limit) * 100 : 0;
+    return Math.min(100, Math.max(0, pct));
+  }
 </script>
 
 <div class="page-head"><h1 class="page-title">連携設定</h1></div>
@@ -37,6 +50,23 @@
         <button class="del" type="submit">解除</button>
       </form>
     {/if}
+
+    <div class="usage">
+      <span class="lab">送信数（無料枠の目安）</span>
+      <div class="usage-row">
+        <span class="usage-label">今日 {data.usage.today} / 100通</span>
+        <div class="usage-track">
+          <div class="usage-fill" style="width:{barWidth(data.usage.today, 100)}%; background:{barColor(data.usage.today, 100)};"></div>
+        </div>
+      </div>
+      <div class="usage-row">
+        <span class="usage-label">今月 {data.usage.month} / 3,000通</span>
+        <div class="usage-track">
+          <div class="usage-fill" style="width:{barWidth(data.usage.month, 3000)}%; background:{barColor(data.usage.month, 3000)};"></div>
+        </div>
+      </div>
+      <p class="usage-note">このアプリから送信した成功数の集計です。Resendアカウント全体の正確な使用量は resend.com のダッシュボードで確認してください。</p>
+    </div>
 
     <div class="test-mail">
       <span class="lab">テスト送信</span>
@@ -147,6 +177,13 @@
   .inline-form { display: inline-block; margin: 4px 0 8px; }
   .mail-form { display: grid; gap: 12px; max-width: 480px; margin: 12px 0 4px; }
   .fieldhint { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+  .usage { margin: 12px 0 4px; max-width: 480px; }
+  .usage .lab { display: block; margin-bottom: 8px; }
+  .usage-row { display: grid; gap: 4px; margin-bottom: 10px; }
+  .usage-label { font-size: 13px; color: var(--ink-2); }
+  .usage-track { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .usage-fill { height: 100%; border-radius: 999px; min-width: 2px; transition: width 0.4s ease; }
+  .usage-note { font-size: 12px; color: var(--ink-2); margin: 4px 0 0; }
   .test-mail { margin: 12px 0 4px; }
   .test-mail .lab { display: block; margin-bottom: 6px; }
   .test-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 480px; }

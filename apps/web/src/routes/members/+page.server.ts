@@ -1,8 +1,8 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { countOwners, createMemberWithPassword, deleteMember, getDB, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
+import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
 import { hashPassword, randomPassword } from "$lib/server/auth";
-import { sendEmail } from "$lib/server/email";
+import { renderEmailTemplate, sendEmail } from "$lib/server/email";
 import { addMemberIssuer, getMemberIssuers, removeMemberIssuer } from "$lib/server/access";
 
 // 招待・変更で選べる権限。ホワイトリスト外（demo 等）は member に矯正
@@ -10,17 +10,20 @@ function normalizeRole(role: string): string {
   return ["owner", "member", "viewer"].includes(role) ? role : "member";
 }
 
-function credMail(name: string, email: string, password: string, loginUrl: string) {
-  const subject = "【Invoice Harness】ログイン情報のご案内";
-  const html = `<div style="font-family:sans-serif;line-height:1.7;color:#1b2330">
-    <p>${name} 様</p>
-    <p>Invoice Harness のログイン情報をご案内します。下記からログインしてください。</p>
-    <p>ログインURL：<a href="${loginUrl}">${loginUrl}</a><br>
-    メールアドレス：${email}<br>初期パスワード：<b>${password}</b></p>
-    <p>初回ログイン後にパスワードの変更をお願いします。</p>
-  </div>`;
-  return { subject, html };
-}
+// 招待メールのテンプレ未保存時に使う既定文面（設定 ▸ メールテンプレの既定と一致）
+const INVITE_TEMPLATE_DEFAULT = {
+  subject: "【Invoice Harness】ログイン情報のご案内",
+  body: `{name} 様
+
+Invoice Harness のログイン情報をご案内します。下記からログインしてください。
+
+メールアドレス: {email}
+初期パスワード: {password}
+
+{link}
+
+初回ログイン後にパスワードの変更をお願いします。`,
+};
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
   const db = getDB(platform);
@@ -57,7 +60,9 @@ export const actions: Actions = {
     let mailError: string | undefined;
     const mailCfg = await getMailConfig(db, platform?.env);
     if (mailCfg.RESEND_API_KEY && sendMail) {
-      const mail = credMail(name, email, tempPassword, loginUrl);
+      // テンプレ（設定 ▸ メールテンプレ）を優先。未保存の環境では既定文面へフォールバック
+      const tpl = (await getEmailTemplate(db, "invite")) ?? INVITE_TEMPLATE_DEFAULT;
+      const mail = renderEmailTemplate(tpl, { name, email, password: tempPassword, link: loginUrl });
       const res = await sendEmail(mailCfg, { to: email, subject: mail.subject, html: mail.html });
       emailed = res.ok;
       // 送信失敗しても招待自体は成功扱い。失敗理由は画面へ返し、初期パスワードは必ず表示する
