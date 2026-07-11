@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
+import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, setPayrollAccess, updateMember } from "$lib/server/db";
 import { hashPassword, randomPassword } from "$lib/server/auth";
 import { renderEmailTemplate, sendEmail } from "$lib/server/email";
 import { addMemberIssuer, getMemberIssuers, removeMemberIssuer, setMemberIssuers } from "$lib/server/access";
@@ -116,6 +116,10 @@ export const actions: Actions = {
       return fail(400, { error: "最後のオーナーは権限を変更できません。先に別のメンバーをオーナーにしてください。" });
     }
     await updateMember(db, id, { name, email, role });
+    // 給与・人件費の閲覧許可（owner は常に可なので設定不要）。チェックONで付与、OFFで剥奪。
+    if (role !== "owner") {
+      await setPayrollAccess(db, id, String(fd.get("can_view_payroll") ?? "") === "on");
+    }
     return { ok: true, saved: id };
   },
 

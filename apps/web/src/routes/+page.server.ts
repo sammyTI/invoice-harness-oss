@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { effectiveDivision, getDB, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, sumTargets } from "$lib/server/db";
+import { countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -139,8 +139,28 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     divisions: allDivisions.length,
   };
 
+  // 「はじめにやること」チェックリスト（owner のみ算出・表示）。
+  // 追加クエリを最小化するため issuers / allDocs / hub.clients を再利用し、
+  // メール連携とメンバー数だけを追加取得する。
+  let checklist: { key: string; label: string; href: string; done: boolean; optional?: boolean }[] | null = null;
+  if (locals.user?.role === "owner") {
+    const mail = await getMailConfig(db, platform?.env);
+    const memberCount = await countActiveMembers(db);
+    const items = [
+      { key: "issuer", label: "自社情報を登録", href: "/onboarding", done: issuers.length > 0 && !!issuers[0]?.name?.trim() },
+      { key: "clients", label: "取引先を追加", href: "/clients", done: hub.clients > 0 },
+      { key: "doc", label: "最初の帳票を作成", href: "/new?type=invoice", done: allDocs.length > 0 },
+      { key: "mail", label: "メール連携", href: "/settings/api", done: !!mail.RESEND_API_KEY, optional: true },
+      { key: "members", label: "メンバーを招待", href: "/members", done: memberCount > 1, optional: true },
+    ];
+    // 必須3つ＋任意2つが全て完了したらカードごと非表示にする。
+    const allDone = items.every((i) => i.done);
+    checklist = allDone ? null : items;
+  }
+
   return {
     hub,
+    checklist,
     fyLabel: periodLabel,
     calendarMode,
     fyEndYear: fy.endYear,

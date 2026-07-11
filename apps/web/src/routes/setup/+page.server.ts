@@ -45,6 +45,7 @@ export const actions: Actions = {
     const token = await createSession(db, id);
     // maxAge 30日は DB 側 sessions.expires_at（createSession で 30日）と一致させる
     cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
-    throw redirect(303, "/");
+    // オーナー作成直後はセットアップウィザードへ誘導する（迷子防止）。
+    throw redirect(303, "/onboarding");
   },
 };

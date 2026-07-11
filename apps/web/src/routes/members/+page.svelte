@@ -94,6 +94,14 @@
                           <option value="owner" selected={m.role === "owner"}>owner</option>
                         </select>
                       </label>
+                      {#if m.role === "owner"}
+                        <label class="ef payroll"><span>給与閲覧</span><span class="always">常に可（オーナー）</span></label>
+                      {:else}
+                        <label class="ef payroll pchk">
+                          <input type="checkbox" name="can_view_payroll" checked={m.can_view_payroll === 1} />
+                          <span>給与・人件費の閲覧を許可（PL全体・経費の給与系が見える）</span>
+                        </label>
+                      {/if}
                       <div class="ef-act">
                         <button class="btn btn-primary btn-sm" type="submit">保存</button>
                         <button class="btn btn-quiet btn-sm" type="button" on:click={() => (editId = null)}>キャンセル</button>
@@ -112,7 +120,12 @@
                       </span>
                     </div>
                   </td>
-                  <td><span class="chip {roleBadge(m.role).cls}">{roleBadge(m.role).label}</span></td>
+                  <td>
+                    <span class="chip {roleBadge(m.role).cls}">{roleBadge(m.role).label}</span>
+                    {#if m.role !== "owner" && m.role !== "demo" && m.can_view_payroll === 1}
+                      <span class="chip chip-payroll" title="給与・人件費（PL・経費の給与系）を閲覧できます">給与閲覧可</span>
+                    {/if}
+                  </td>
                   <td class="statecell">
                     {#if m.status === "active"}<span class="chip chip-paid">有効</span>
                     {:else}<span class="chip chip-draft">停止</span>{/if}
@@ -288,6 +301,13 @@
   .ef { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .ef .input { font-size: 13px; }
   .ef-act { display: flex; gap: 8px; }
+  /* 給与閲覧チップ（許可時のみ表示・小さい緑） */
+  .chip-payroll { margin-left: 6px; background: var(--green-soft, #e3f4ea); color: var(--green, #1a7f47); font-size: 11px; font-weight: 700; }
+  /* 編集フォーム：給与閲覧許可のチェック */
+  .ef.payroll { max-width: 320px; }
+  .ef.payroll.pchk { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
+  .ef.payroll.pchk input[type="checkbox"] { width: 15px; height: 15px; flex: none; }
+  .ef.payroll .always { font-size: 13px; color: var(--ink-2); font-weight: 600; }
   .editrow { background: var(--surface-2); }
   .access { margin-top: 16px; }
   .ahint { font-size: 12px; color: var(--muted); margin: 0 0 12px; line-height: 1.6; }

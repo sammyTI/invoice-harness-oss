@@ -69,7 +69,7 @@
 
 <div class="modeswitch">
   <a class="ms" class:on={!data.calendar} href={`/settings/targets?fy=${data.fy}`}>決算期（{data.fiscalMonth}月締め）</a>
-  <a class="ms" class:on={data.calendar} href={`/settings/targets?fy=${data.fy}&fm=1`}>暦年（1〜12月）</a>
+  <a class="ms" class:on={data.calendar} href={`/settings/targets?fy=${data.fy}&fm=12`}>暦年（1〜12月）</a>
 </div>
 
 {#if form?.ok}<p class="flash-ok">保存しました。</p>{/if}

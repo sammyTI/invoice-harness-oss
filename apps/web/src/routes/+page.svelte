@@ -5,6 +5,8 @@
   export let data;
   // viewer（閲覧のみ）は作成系UIを非表示
   $: isViewer = $page.data.user?.role === "viewer";
+  // 「はじめにやること」チェックリストは owner のみ表示（load 側でも owner 時のみ算出）
+  $: isOwner = $page.data.user?.role === "owner";
   const pct = (v) => Math.round((v / data.maxMonthly) * 100);
   // グラフ用の簡易表記（1万以上は「○○万」、未満は3桁区切り）。一目で金額感が掴めるように。
   const compact = (n) => {
@@ -39,6 +41,34 @@
     ]} />
   </div>
 </div>
+
+{#if isOwner && data.checklist}
+  <div class="card getstarted">
+    <div class="gs-head">
+      <h2>はじめにやること</h2>
+      <a class="gs-wizard" href="/onboarding">ウィザードで設定 →</a>
+    </div>
+    <ul class="gs-list">
+      {#each data.checklist as c}
+        <li class="gs-item" class:done={c.done}>
+          {#if c.done}
+            <span class="gs-check done" aria-label="完了">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+          {:else}
+            <span class="gs-check" aria-label="未完了"></span>
+          {/if}
+          <span class="gs-label">
+            {c.label}{#if c.optional}<span class="gs-opt">（任意）</span>{/if}
+          </span>
+          {#if !c.done}
+            <a class="gs-go" href={c.href}>設定する →</a>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </div>
+{/if}
 
 <nav class="hubnav" aria-label="ダッシュボード">
   <a class="card hubcard" href="/clients">
@@ -140,6 +170,42 @@
       </div>
     {/each}
   </div>
+
+  <!-- グラフは傾向、正確な金額はこの表で（数字が読めない問題への対応） -->
+  <details class="numtbl">
+    <summary>数値で見る</summary>
+    <div class="table-wrap numtbl-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>月</th><th class="r">売上</th><th class="r">費用</th><th class="r">利益</th>{#if data.hasMonthTargets}<th class="r">目標</th><th class="r">達成率</th>{/if}</tr>
+        </thead>
+        <tbody>
+          {#each data.months as m}
+            <tr>
+              <td>{m.label}</td>
+              <td class="r num">{formatYen(m.revenue)}</td>
+              <td class="r num">{formatYen(m.expense)}</td>
+              <td class="r num" class:neg={m.profit < 0}>{formatYen(m.profit)}</td>
+              {#if data.hasMonthTargets}
+                <td class="r num">{m.target ? formatYen(m.target) : "—"}</td>
+                <td class="r num">{m.target ? `${Math.round((m.revenue / m.target) * 1000) / 10}%` : "—"}</td>
+              {/if}
+            </tr>
+          {/each}
+          <tr class="totalrow">
+            <td>合計</td>
+            <td class="r num">{formatYen(data.kpi.revenue)}</td>
+            <td class="r num">{formatYen(data.kpi.expense)}</td>
+            <td class="r num" class:neg={data.kpi.profit < 0}>{formatYen(data.kpi.profit)}</td>
+            {#if data.hasMonthTargets}
+              <td class="r num">{data.target ? formatYen(data.target) : "—"}</td>
+              <td class="r num">{data.achievement !== null ? `${data.achievement}%` : "—"}</td>
+            {/if}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
 </div>
 
 {#if data.hasDivisions}
@@ -200,6 +266,24 @@
 {/if}
 
 <style>
+  /* はじめにやること（オンボーディング・チェックリスト） */
+  .getstarted { padding: 18px 20px; margin: 0 0 18px; }
+  .gs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .gs-head h2 { font-size: 15px; margin: 0; }
+  .gs-wizard { font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
+  .gs-wizard:hover { text-decoration: underline; }
+  .gs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .gs-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .gs-item:first-child { border-top: none; }
+  .gs-check { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface-2); color: transparent; }
+  .gs-check.done { border-color: var(--green); background: var(--green); color: #fff; }
+  .gs-check svg { width: 13px; height: 13px; }
+  .gs-label { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .gs-item.done .gs-label { color: var(--muted); font-weight: 500; }
+  .gs-opt { font-size: 11px; font-weight: 700; color: var(--muted); margin-left: 4px; }
+  .gs-go { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
+  .gs-go:hover { text-decoration: underline; }
+
   .hubnav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0 0 18px; }
   @media (max-width: 1080px) { .hubnav { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 640px) { .hubnav { grid-template-columns: repeat(2, 1fr); } }
@@ -261,6 +345,16 @@
   .bar.rev { background: linear-gradient(180deg, #2e5bff, #5d80ff); }
   .bar.exp { background: #e9bd77; }
   .mlabel { font-size: 11px; color: var(--muted); }
+  /* 月次の数値テーブル（折りたたみ） */
+  .numtbl { margin-top: 12px; }
+  .numtbl summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--primary-d); list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+  .numtbl summary::-webkit-details-marker { display: none; }
+  .numtbl summary::before { content: "▸"; font-size: 11px; transition: transform 0.15s ease; }
+  .numtbl[open] summary::before { transform: rotate(90deg); }
+  .numtbl-wrap { margin-top: 10px; }
+  .numtbl .table td, .numtbl .table th { padding-top: 8px; padding-bottom: 8px; }
+  .numtbl .totalrow td { font-weight: 800; border-top: 2px solid var(--line); }
+  .numtbl .neg { color: var(--red); }
 
   .dtable { display: flex; flex-direction: column; gap: 2px; }
   .drow { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1.6fr; gap: 10px; align-items: center; padding: 9px 8px; border-radius: 7px; }

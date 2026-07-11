@@ -21,7 +21,7 @@ async function resolveWithSecurityHeaders(event: Parameters<Handle>[0]["event"],
 
 const PUBLIC = ["/login", "/setup", "/accept", "/logout"];
 // /transactions（銀行明細取込・消込）は会社タグの無い生明細を扱うため owner 専用
-const OWNER_ONLY = ["/members", "/settings", "/transactions"];
+const OWNER_ONLY = ["/members", "/settings", "/transactions", "/onboarding"];
 // viewer が書き込みできる例外パス（自分のパスワード変更とログアウトのみ）
 const VIEWER_WRITE_OK = ["/logout", "/account/password"];
 

@@ -1072,11 +1072,12 @@ export interface Member {
   must_change_password?: number;
   password_hash?: string | null;
   salt?: string | null;
+  can_view_payroll?: number;
 }
 
 export async function listMembers(db: D1Database): Promise<Member[]> {
   const { results } = await db
-    .prepare("SELECT id,name,email,role,status,invite_token,must_change_password FROM members ORDER BY created_at")
+    .prepare("SELECT id,name,email,role,status,invite_token,must_change_password,can_view_payroll FROM members ORDER BY created_at")
     .all<Member>();
   return results ?? [];
 }
@@ -1678,4 +1679,260 @@ export async function getRelated(
   }
   const { results } = await db.prepare(`${sel} WHERE d.parent_id=?1 ORDER BY d.created_at`).bind(doc.id).all<DocumentListRow>();
   return { parent, children: results ?? [] };
+}
+
+// ---------- 経費・給与（PL フェーズ1） ----------
+// 帳票（請求/発注/支払通知）に載らない販管費を月次で手入力し、PL の販管費（sga）に積む。
+// category が機微（給与・法定福利費）なら confidential=1 を強制し、閲覧権限者だけに見せる。
+
+/** 勘定科目マスタ。confidential=true は機微科目（閲覧権限者のみ表示・登録可）。 */
+export const EXPENSE_CATEGORIES = [
+  { key: "salary", label: "給与手当", confidential: true },
+  { key: "social_insurance", label: "法定福利費", confidential: true },
+  { key: "rent", label: "地代家賃", confidential: false },
+  { key: "utilities", label: "水道光熱費", confidential: false },
+  { key: "communication", label: "通信費", confidential: false },
+  { key: "advertising", label: "広告宣伝費", confidential: false },
+  { key: "travel", label: "旅費交通費", confidential: false },
+  { key: "supplies", label: "消耗品費", confidential: false },
+  { key: "misc", label: "雑費", confidential: false },
+  { key: "other", label: "その他", confidential: false },
+] as const;
+
+export type ExpenseCategoryKey = (typeof EXPENSE_CATEGORIES)[number]["key"];
+
+const EXPENSE_CATEGORY_MAP = new Map(EXPENSE_CATEGORIES.map((c) => [c.key, c]));
+
+/** 科目キーが機微（給与・法定福利費）か。未知キーは非機微扱い。 */
+export function isConfidentialCategory(category: string): boolean {
+  return EXPENSE_CATEGORY_MAP.get(category as ExpenseCategoryKey)?.confidential ?? false;
+}
+
+/** 科目キー→ラベル（未知キーはキーそのまま）。 */
+export function expenseCategoryLabel(category: string): string {
+  return EXPENSE_CATEGORY_MAP.get(category as ExpenseCategoryKey)?.label ?? category;
+}
+
+export interface Expense {
+  id: string;
+  issuer_id: string;
+  division_id: string | null;
+  category: string;
+  label: string | null;
+  amount: number;
+  ym: string;
+  confidential: number;
+  created_at: string;
+}
+
+export interface ExpenseInput {
+  issuer_id: string;
+  division_id?: string | null;
+  category: string;
+  label?: string | null;
+  amount: number;
+  ym: string;
+}
+
+/**
+ * 経費を一覧。ym は前方一致（"2026" で年 / "2026-06" で月）、完全一致どちらも可。作成日順。
+ * issuerId 指定時はその会社に絞る。
+ */
+export async function listExpenses(db: D1Database, ym?: string, issuerId?: string): Promise<Expense[]> {
+  const conds: string[] = [];
+  const binds: string[] = [];
+  if (ym) {
+    binds.push(`${ym}%`);
+    conds.push(`ym LIKE ?${binds.length}`);
+  }
+  if (issuerId) {
+    binds.push(issuerId);
+    conds.push(`issuer_id = ?${binds.length}`);
+  }
+  const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
+  const { results } = await db
+    .prepare(`SELECT * FROM expenses${where} ORDER BY created_at`)
+    .bind(...binds)
+    .all<Expense>();
+  return results ?? [];
+}
+
+/** 経費を1件作成。機微科目なら confidential=1 を強制する。新IDを返す。 */
+export async function createExpense(db: D1Database, f: ExpenseInput): Promise<string> {
+  const id = crypto.randomUUID();
+  const confidential = isConfidentialCategory(f.category) ? 1 : 0;
+  await db
+    .prepare(
+      "INSERT INTO expenses (id, issuer_id, division_id, category, label, amount, ym, confidential) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"
+    )
+    .bind(id, f.issuer_id, f.division_id ?? null, f.category, f.label ?? null, Math.round(f.amount), f.ym, confidential)
+    .run();
+  return id;
+}
+
+/** 経費を更新。科目変更に追随して confidential を再判定する。 */
+export async function updateExpense(db: D1Database, id: string, f: ExpenseInput): Promise<void> {
+  const confidential = isConfidentialCategory(f.category) ? 1 : 0;
+  await db
+    .prepare(
+      "UPDATE expenses SET issuer_id=?2, division_id=?3, category=?4, label=?5, amount=?6, ym=?7, confidential=?8 WHERE id=?1"
+    )
+    .bind(id, f.issuer_id, f.division_id ?? null, f.category, f.label ?? null, Math.round(f.amount), f.ym, confidential)
+    .run();
+}
+
+export async function deleteExpense(db: D1Database, id: string): Promise<void> {
+  await db.prepare("DELETE FROM expenses WHERE id = ?1").bind(id).run();
+}
+
+/** 1件だけ取得（削除時の権限判定に使う）。 */
+export async function getExpense(db: D1Database, id: string): Promise<Expense | null> {
+  return (await db.prepare("SELECT * FROM expenses WHERE id = ?1").bind(id).first<Expense>()) ?? null;
+}
+
+/**
+ * 前月の経費を丸ごと複製する。toYm に既に1件でもあれば何もせず false（二重コピー防止）。
+ * issuerId 指定時はその会社分のみ複製・判定する。
+ */
+export async function copyExpensesFromMonth(
+  db: D1Database,
+  fromYm: string,
+  toYm: string,
+  issuerId?: string
+): Promise<boolean> {
+  const existing = await listExpenses(db, toYm, issuerId);
+  if (existing.length > 0) return false; // 既に当月に経費あり＝二重コピー防止
+  const src = await listExpenses(db, fromYm, issuerId);
+  if (src.length === 0) return false;
+  const stmts = src.map((e) =>
+    db
+      .prepare(
+        "INSERT INTO expenses (id, issuer_id, division_id, category, label, amount, ym, confidential) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"
+      )
+      .bind(crypto.randomUUID(), e.issuer_id, e.division_id, e.category, e.label, e.amount, toYm, e.confidential)
+  );
+  await db.batch(stmts);
+  return true;
+}
+
+// ---------- 給与・人件費の閲覧権限 ----------
+
+/** 給与・法定福利費を閲覧できるか。owner は常に true、それ以外は members.can_view_payroll=1。 */
+export async function canViewPayroll(
+  db: D1Database,
+  user: { id: string; role: string } | undefined | null
+): Promise<boolean> {
+  if (!user) return false;
+  if (user.role === "owner") return true;
+  const row = await db
+    .prepare("SELECT can_view_payroll FROM members WHERE id = ?1")
+    .bind(user.id)
+    .first<{ can_view_payroll: number }>();
+  return (row?.can_view_payroll ?? 0) === 1;
+}
+
+/** メンバーの給与閲覧権限を付与/剥奪する。 */
+export async function setPayrollAccess(db: D1Database, memberId: string, allow: boolean): Promise<void> {
+  await db
+    .prepare("UPDATE members SET can_view_payroll = ?2 WHERE id = ?1")
+    .bind(memberId, allow ? 1 : 0)
+    .run();
+}
+
+// ---------- PL 集計 ----------
+
+export interface PlSgaLine {
+  category: string;
+  label: string;
+  amount: number;
+}
+
+export interface PlMonthRow {
+  ym: string;
+  revenue: number;
+  cogs: number;
+  sgaTotal: number;
+  op: number | null; // includeConfidential=false のときは null
+}
+
+export interface PlSummary {
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  sga: PlSgaLine[];
+  sgaTotal: number;
+  operatingProfit: number | null; // includeConfidential=false のときは null
+  /** 機微科目を除外表示したか（true=給与・法定福利費が隠されている）。 */
+  confidentialHidden: boolean;
+  months: PlMonthRow[];
+}
+
+const REV_TYPES = new Set(["invoice"]);
+const COGS_TYPES = new Set(["order", "payment_notice"]);
+
+/**
+ * PL 集計（表示期間 yms の各月＝暦月 YYYY-MM のリスト）。
+ * - revenue: 請求(invoice)合計 / cogs: 発注+支払通知合計（取消除く・税込）
+ * - sga: 科目別の販管費合計。includeConfidential=false なら機微科目（給与・法定福利費）を除外し
+ *        confidentialHidden=true を返す。
+ * - operatingProfit / 各月 op: includeConfidential=false のときは（人件費が欠けるため）null。
+ * listDocuments を再利用（canceled除外・issuer フィルタ対応）。
+ */
+export async function plSummary(
+  db: D1Database,
+  yms: string[],
+  issuerId?: string,
+  opts?: { includeConfidential: boolean }
+): Promise<PlSummary> {
+  const includeConfidential = opts?.includeConfidential ?? false;
+  const ymSet = new Set(yms);
+
+  // 帳票（売上・原価）。issuer 単一指定は allowed=[issuerId] で絞る。
+  const allowed = issuerId ? [issuerId] : null;
+  const docs = await listDocuments(db, undefined, allowed);
+  const activeDocs = docs.filter((d) => d.status !== "canceled" && ymSet.has(d.issue_date.slice(0, 7)));
+
+  // 経費（販管費）。表示期間に含まれる月だけ拾う。
+  const allExpenses = (await Promise.all(yms.map((ym) => listExpenses(db, ym, issuerId)))).flat();
+  const expenses = includeConfidential ? allExpenses : allExpenses.filter((e) => e.confidential !== 1);
+  const confidentialHidden = !includeConfidential && allExpenses.some((e) => e.confidential === 1);
+
+  // 全体合計
+  let revenue = 0;
+  let cogs = 0;
+  for (const d of activeDocs) {
+    if (REV_TYPES.has(d.type)) revenue += d.total;
+    else if (COGS_TYPES.has(d.type)) cogs += d.total;
+  }
+
+  // 科目別 sga（EXPENSE_CATEGORIES の並び順を保つ）
+  const byCat = new Map<string, number>();
+  for (const e of expenses) byCat.set(e.category, (byCat.get(e.category) ?? 0) + e.amount);
+  const sga: PlSgaLine[] = EXPENSE_CATEGORIES.filter((c) => byCat.has(c.key)).map((c) => ({
+    category: c.key,
+    label: c.label,
+    amount: byCat.get(c.key) ?? 0,
+  }));
+  // マスタに無い科目（過去データ等）も末尾に拾う
+  for (const [cat, amount] of byCat) {
+    if (!EXPENSE_CATEGORY_MAP.has(cat as ExpenseCategoryKey)) sga.push({ category: cat, label: cat, amount });
+  }
+  const sgaTotal = sga.reduce((a, s) => a + s.amount, 0);
+  const grossProfit = revenue - cogs;
+  const operatingProfit = includeConfidential ? grossProfit - sgaTotal : null;
+
+  // 月別内訳
+  const months: PlMonthRow[] = yms.map((ym) => {
+    let rev = 0;
+    let cog = 0;
+    for (const d of activeDocs) {
+      if (d.issue_date.slice(0, 7) !== ym) continue;
+      if (REV_TYPES.has(d.type)) rev += d.total;
+      else if (COGS_TYPES.has(d.type)) cog += d.total;
+    }
+    const sgaM = expenses.filter((e) => e.ym === ym).reduce((a, e) => a + e.amount, 0);
+    return { ym, revenue: rev, cogs: cog, sgaTotal: sgaM, op: includeConfidential ? rev - cog - sgaM : null };
+  });
+
+  return { revenue, cogs, grossProfit, sga, sgaTotal, operatingProfit, confidentialHidden, months };
 }
