@@ -2,9 +2,12 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { formatYen } from "@invoice-harness/shared";
+  import { page } from "$app/stores";
   export let data;
   export let form;
   $: editing = data.editing;
+  // viewer（閲覧のみ）は作成・編集系UIを非表示
+  $: isViewer = $page.data.user?.role === "viewer";
 
   let addDlg;
   let editDlg;
@@ -17,12 +20,12 @@
 
 <div class="page-head">
   <h1 class="page-title">品目マスタ</h1>
-  <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button>
+  {#if !isViewer}<button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button>{/if}
 </div>
 <p class="hint">よく使う品目を登録すると、帳票の作成時に品目名から単価・単位・税率を呼び出せます。</p>
 
 {#if data.items.length === 0}
-  <div class="empty">品目がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button></div></div>
+  <div class="empty">品目がまだありません。{#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button></div>{/if}</div>
 {:else}
   <div class="table-wrap">
     <table class="table">
@@ -35,8 +38,10 @@
             <td>{it.unit}</td>
             <td class="num">{it.tax_rate}%</td>
             <td class="r ops">
-              <a class="mini" href={`/items?edit=${it.id}`}>編集</a>
-              <form method="POST" action="?/delete"><input type="hidden" name="id" value={it.id} /><button class="del" type="submit">削除</button></form>
+              {#if !isViewer}
+                <a class="mini" href={`/items?edit=${it.id}`}>編集</a>
+                <form method="POST" action="?/delete"><input type="hidden" name="id" value={it.id} /><button class="del" type="submit">削除</button></form>
+              {/if}
             </td>
           </tr>
         {/each}

@@ -9,6 +9,8 @@ function json(body: unknown, status: number): Response {
 const PUBLIC = ["/login", "/setup", "/accept", "/logout"];
 // /transactions（銀行明細取込・消込）は会社タグの無い生明細を扱うため owner 専用
 const OWNER_ONLY = ["/members", "/settings", "/transactions"];
+// viewer が書き込みできる例外パス（自分のパスワード変更とログアウトのみ）
+const VIEWER_WRITE_OK = ["/logout", "/account/password"];
 
 export const handle: Handle = async ({ event, resolve }) => {
   const db = event.platform?.env?.DB;
@@ -60,6 +62,17 @@ export const handle: Handle = async ({ event, resolve }) => {
     OWNER_ONLY.some((p) => path.startsWith(p))
   ) {
     throw redirect(303, "/");
+  }
+
+  // viewer（閲覧のみ・税理士等の外部関係者向け）は参照とエクスポートのみ。書き込みはサーバ側で一括拒否
+  if (
+    event.locals.user &&
+    event.locals.user.role === "viewer" &&
+    event.request.method !== "GET" &&
+    event.request.method !== "HEAD" &&
+    !VIEWER_WRITE_OK.includes(path)
+  ) {
+    throw redirect(303, event.url.pathname);
   }
 
   // 初期パスワードのままなら、パスワード変更を強制

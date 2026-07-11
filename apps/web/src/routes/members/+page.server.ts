@@ -5,6 +5,11 @@ import { hashPassword, randomPassword } from "$lib/server/auth";
 import { sendEmail } from "$lib/server/email";
 import { addMemberIssuer, getMemberIssuers, removeMemberIssuer } from "$lib/server/access";
 
+// 招待・変更で選べる権限。ホワイトリスト外（demo 等）は member に矯正
+function normalizeRole(role: string): string {
+  return ["owner", "member", "viewer"].includes(role) ? role : "member";
+}
+
 function credMail(name: string, email: string, password: string, loginUrl: string) {
   const subject = "【Invoice Harness】アカウント発行のお知らせ";
   const html = `<div style="font-family:sans-serif;line-height:1.7;color:#1b2330">
@@ -36,7 +41,7 @@ export const actions: Actions = {
     const fd = await request.formData();
     const name = String(fd.get("name") ?? "").trim();
     const email = String(fd.get("email") ?? "").trim();
-    const role = String(fd.get("role") ?? "member");
+    const role = normalizeRole(String(fd.get("role") ?? "member"));
     if (!name || !email) return fail(400, { error: "名前とメールは必須です。" });
     if (await getMemberByEmail(db, email)) return fail(400, { error: "そのメールは既に登録されています。" });
 
@@ -62,7 +67,7 @@ export const actions: Actions = {
     const id = String(fd.get("id") ?? "");
     const name = String(fd.get("name") ?? "").trim();
     const email = String(fd.get("email") ?? "").trim() || null;
-    const role = String(fd.get("role") ?? "member");
+    const role = normalizeRole(String(fd.get("role") ?? "member"));
     if (!id || !name) return fail(400, { error: "名前は必須です。" });
     // メール重複チェック（他メンバーと衝突しない）
     if (email) {

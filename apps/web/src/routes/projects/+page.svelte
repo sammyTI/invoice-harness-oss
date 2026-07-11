@@ -1,8 +1,11 @@
 <script>
   import { onMount } from "svelte";
   import { formatYen } from "@invoice-harness/shared";
+  import { page } from "$app/stores";
   export let data;
   export let form;
+  // viewer（閲覧のみ）は作成系UIを非表示
+  $: isViewer = $page.data.user?.role === "viewer";
   let clientSel = data.presetClient || (data.clients[0]?.id ?? "");
 
   // 状態: 提案中 → 進行中 → 完了
@@ -21,7 +24,7 @@
 
 <div class="page-head">
   <h1 class="page-title">プロジェクト</h1>
-  <button class="btn btn-primary" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button>
+  {#if !isViewer}<button class="btn btn-primary" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button>{/if}
 </div>
 <p class="hint">顧客ごとの案件に、請求書・見積書・支払（発注/支払通知）を紐づけて収支（粗利）を管理します。</p>
 
@@ -40,7 +43,7 @@
 {#if data.projects.length === 0}
   <div class="empty">
     {data.q || data.st ? "条件に一致するプロジェクトがありません。" : "プロジェクトがまだありません。"}
-    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button></div>
+    {#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button></div>{/if}
   </div>
 {:else}
   <div class="table-wrap">

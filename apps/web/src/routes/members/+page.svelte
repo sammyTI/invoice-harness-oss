@@ -9,6 +9,18 @@
 
   let editId = null;
   let copied = false;
+  let inviteRole = "member";
+
+  // ロールバッジの表示ラベルとチップ配色
+  const ROLE_BADGE = {
+    owner: { label: "オーナー", cls: "chip-issued" },
+    member: { label: "メンバー", cls: "chip-paid" },
+    viewer: { label: "閲覧のみ", cls: "chip-draft" },
+    demo: { label: "デモ", cls: "chip-sent" },
+  };
+  const roleBadge = (r) => ROLE_BADGE[r] ?? { label: r, cls: "chip-draft" };
+  // アバターの頭文字（名前の先頭1字）
+  const initial = (name) => (name ?? "").trim().charAt(0) || "?";
   function credText(c) {
     return `Invoice Harness ログイン情報\nログインURL: ${c.loginUrl}\nメール: ${c.email}\n初期パスワード: ${c.password}\n※初回ログイン後にパスワードを変更してください。`;
   }
@@ -52,12 +64,12 @@
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>名前</th><th>メール</th><th>権限</th><th>状態</th><th></th></tr></thead>
+          <thead><tr><th>メンバー</th><th>権限</th><th>状態</th><th></th></tr></thead>
           <tbody>
             {#each data.members as m}
               {#if editId === m.id}
                 <tr class="editrow">
-                  <td colspan="5">
+                  <td colspan="4">
                     <form method="POST" action="?/update" class="eform" use:enhance={() => async ({ update }) => { await update({ reset: false }); editId = null; }}>
                       <input type="hidden" name="id" value={m.id} />
                       <label class="ef"><span>名前</span><input class="input" name="name" value={m.name} required /></label>
@@ -65,6 +77,7 @@
                       <label class="ef"><span>権限</span>
                         <select class="input" name="role">
                           <option value="member" selected={m.role === "member"}>member</option>
+                          <option value="viewer" selected={m.role === "viewer"}>viewer（閲覧のみ）</option>
                           <option value="owner" selected={m.role === "owner"}>owner</option>
                         </select>
                       </label>
@@ -77,12 +90,20 @@
                 </tr>
               {:else}
                 <tr>
-                  <td><b>{m.name}</b></td>
-                  <td>{m.email ?? "—"}</td>
-                  <td><span class="chip {m.role === 'owner' ? 'chip-paid' : 'chip-draft'}">{m.role}</span></td>
                   <td>
-                    {#if m.must_change_password}<span class="chip chip-sent">初期PW</span>
-                    {:else}<span class="chip chip-issued">有効</span>{/if}
+                    <div class="mcell">
+                      <span class="avatar" aria-hidden="true">{initial(m.name)}</span>
+                      <span class="minfo">
+                        <span class="mname">{m.name}</span>
+                        <span class="memail">{m.email ?? "—"}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td><span class="chip {roleBadge(m.role).cls}">{roleBadge(m.role).label}</span></td>
+                  <td class="statecell">
+                    {#if m.status === "active"}<span class="chip chip-paid">有効</span>
+                    {:else}<span class="chip chip-draft">停止</span>{/if}
+                    {#if m.must_change_password}<span class="chip chip-sent">初期PW</span>{/if}
                   </td>
                   <td class="r rowacts">
                     <button class="btn btn-quiet btn-sm" type="button" on:click={() => (editId = m.id)}>編集</button>
@@ -148,8 +169,31 @@
     <div class="field"><span class="lab">名前</span><input class="input" name="name" required /></div>
     <div class="field"><span class="lab">メール</span><input class="input" type="email" name="email" required /></div>
     <div class="field"><span class="lab">権限</span>
-      <select class="input" name="role"><option value="member">member</option><option value="owner">owner</option></select>
+      <div class="rolecards">
+        <label class="rolecard" class:sel={inviteRole === "member"}>
+          <input type="radio" name="role" value="member" bind:group={inviteRole} />
+          <span class="rc-body">
+            <span class="rc-title">メンバー</span>
+            <span class="rc-desc">帳票の作成・編集、入出金の記録ができます。設定とメンバー管理は不可。</span>
+          </span>
+        </label>
+        <label class="rolecard" class:sel={inviteRole === "viewer"}>
+          <input type="radio" name="role" value="viewer" bind:group={inviteRole} />
+          <span class="rc-body">
+            <span class="rc-title">閲覧のみ</span>
+            <span class="rc-desc">閲覧とPDF・CSV出力のみ。税理士・監査など外部関係者の招待に。数字の確認はすべて可能で、変更は一切できません。</span>
+          </span>
+        </label>
+        <label class="rolecard" class:sel={inviteRole === "owner"}>
+          <input type="radio" name="role" value="owner" bind:group={inviteRole} />
+          <span class="rc-body">
+            <span class="rc-title">オーナー</span>
+            <span class="rc-desc">すべての機能＋設定・メンバー管理。</span>
+          </span>
+        </label>
+      </div>
     </div>
+    <p class="rolehint">税理士に入出金の消込や修正まで任せる場合は member を選んでください。viewer は入力が必要になったら後から変更できます。</p>
     <button class="btn btn-primary" type="submit" style="width:100%">初期パスワードを発行</button>
   </form>
 </dialog>
@@ -160,6 +204,33 @@
   .cred-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .cred-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 13px; white-space: pre-wrap; margin: 0 0 10px; }
   .layout { display: block; }
+
+  /* メンバーセル: アバター＋名前＋メール */
+  .mcell { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 32px; height: 32px; flex: none; border-radius: 50%;
+    background: var(--grad); color: #fff; font-weight: 800; font-size: 14px;
+    display: grid; place-items: center; text-transform: uppercase; line-height: 1;
+  }
+  .minfo { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+  .mname { font-weight: 700; }
+  .memail { font-size: 12px; color: var(--muted); }
+  .statecell { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+  /* 招待モーダル: ロール選択のラジオカード */
+  .rolecards { display: flex; flex-direction: column; gap: 8px; }
+  .rolecard {
+    display: flex; align-items: flex-start; gap: 10px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+    cursor: pointer; transition: border-color 0.12s, background 0.12s;
+  }
+  .rolecard.sel { border-color: var(--primary); background: var(--primary-soft); }
+  .rolecard input[type="radio"] { width: 15px; height: 15px; margin-top: 2px; flex: none; }
+  .rc-body { display: flex; flex-direction: column; gap: 3px; }
+  .rc-title { font-weight: 700; font-size: 14px; }
+  .rc-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .rolehint { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 4px 0 4px; }
+
   .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
   .rowacts { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .eform { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; padding: 4px 0; }

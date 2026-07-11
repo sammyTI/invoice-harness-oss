@@ -1,9 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   export let data;
   export let form;
   $: editing = data.editing;
+  // viewer（閲覧のみ）は作成・編集系UIを非表示
+  $: isViewer = $page.data.user?.role === "viewer";
 
   let addDlg;
   let editDlg;
@@ -18,16 +21,18 @@
 
 <div class="page-head">
   <h1 class="page-title">取引先</h1>
-  <div class="acts">
-    <button class="btn btn-quiet btn-sm" type="button" on:click={() => catDlg.showModal()}>顧客区分マスタ</button>
-    <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button>
-  </div>
+  {#if !isViewer}
+    <div class="acts">
+      <button class="btn btn-quiet btn-sm" type="button" on:click={() => catDlg.showModal()}>顧客区分マスタ</button>
+      <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button>
+    </div>
+  {/if}
 </div>
 
 {#if form?.ok}<p class="flash-ok">保存しました。</p>{/if}
 
 {#if data.clients.length === 0}
-  <div class="empty">取引先がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button></div></div>
+  <div class="empty">取引先がまだありません。{#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button></div>{/if}</div>
 {:else}
   <div class="table-wrap">
     <table class="table">
@@ -41,7 +46,7 @@
             </td>
             <td>{c.contact ?? "—"}</td>
             <td>{c.postal_code ? `〒${c.postal_code} ` : ""}{c.address ?? "—"}</td>
-            <td class="r"><a class="mini" href={`/clients?edit=${c.id}`}>編集</a></td>
+            <td class="r">{#if !isViewer}<a class="mini" href={`/clients?edit=${c.id}`}>編集</a>{/if}</td>
           </tr>
         {/each}
       </tbody>

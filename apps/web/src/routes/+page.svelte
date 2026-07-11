@@ -1,6 +1,9 @@
 <script>
   import { DOCUMENT_SHORT, formatYen, lifecycle } from "@invoice-harness/shared";
+  import { page } from "$app/stores";
   export let data;
+  // viewer（閲覧のみ）は作成系UIを非表示
+  $: isViewer = $page.data.user?.role === "viewer";
   const pct = (v) => Math.round((v / data.maxMonthly) * 100);
   // グラフ用の簡易表記（1万以上は「○○万」、未満は3桁区切り）。一目で金額感が掴めるように。
   const compact = (n) => {
@@ -131,7 +134,7 @@
   </div>
 {/if}
 
-<div class="sub-head"><h2>最近の帳票</h2><a class="btn btn-primary btn-sm" href="/new?type=invoice" title="請求書を作成">＋ 新規作成</a></div>
+<div class="sub-head"><h2>最近の帳票</h2>{#if !isViewer}<a class="btn btn-primary btn-sm" href="/new?type=invoice" title="請求書を作成">＋ 新規作成</a>{/if}</div>
 
 {#if data.recent.length === 0}
   <div class="empty">まだ帳票がありません。<a href="/new?type=invoice">請求書を作成</a>してください。</div>

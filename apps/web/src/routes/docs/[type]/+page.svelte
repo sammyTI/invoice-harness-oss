@@ -1,7 +1,10 @@
 <script>
   import { formatYen, lifecycle } from "@invoice-harness/shared";
+  import { page } from "$app/stores";
   export let data;
   export let form;
+  // viewer（閲覧のみ）は作成・一括操作を非表示
+  $: isViewer = $page.data.user?.role === "viewer";
 
   const paid = (d) => d.status === "paid";
   const overdue = (d) => !paid(d) && d.due_date && d.due_date < data.today;
@@ -39,7 +42,7 @@
 
 <div class="page-head">
   <h1 class="page-title">{data.label}</h1>
-  <a class="btn btn-primary" href={`/new?type=${data.type}`}>＋ 新規作成</a>
+  {#if !isViewer}<a class="btn btn-primary" href={`/new?type=${data.type}`}>＋ 新規作成</a>{/if}
 </div>
 
 <form class="searchbar" method="GET">
@@ -79,15 +82,17 @@
 
   <div class="main">
     {#if data.documents.length === 0}
-      <div class="empty">該当する{data.label}はありません。<div style="margin-top:10px"><a class="btn btn-primary btn-sm" href={`/new?type=${data.type}`}>＋ 作成</a></div></div>
+      <div class="empty">該当する{data.label}はありません。{#if !isViewer}<div style="margin-top:10px"><a class="btn btn-primary btn-sm" href={`/new?type=${data.type}`}>＋ 作成</a></div>{/if}</div>
     {:else}
       <form method="POST">
         <div class="bulkbar">
           <span class="muted num">{data.total}件 / {data.page}–{data.pageCount}ページ</span>
-          <div class="bulk-actions">
-            <button class="btn btn-quiet btn-sm" formaction="?/bulkSend" type="submit">選択を送付済みに</button>
-            <button class="btn btn-danger btn-sm" formaction="?/bulkDelete" type="submit" on:click={(e) => { if (!confirm("選択した帳票を削除します。よろしいですか？")) e.preventDefault(); }}>選択を削除</button>
-          </div>
+          {#if !isViewer}
+            <div class="bulk-actions">
+              <button class="btn btn-quiet btn-sm" formaction="?/bulkSend" type="submit">選択を送付済みに</button>
+              <button class="btn btn-danger btn-sm" formaction="?/bulkDelete" type="submit" on:click={(e) => { if (!confirm("選択した帳票を削除します。よろしいですか？")) e.preventDefault(); }}>選択を削除</button>
+            </div>
+          {/if}
         </div>
         <div class="table-wrap">
           <table class="table list">
