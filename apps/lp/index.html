@@ -22,12 +22,16 @@
   --mono:ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth; overflow-x:clip}
 body{
   margin:0; font-family:"Noto Sans JP",system-ui,sans-serif;
   color:var(--ink); background:var(--white); line-height:1.75;
   font-weight:400; -webkit-font-smoothing:antialiased;
+  overflow-x:clip;
 }
+/* グリッド子が内容（コードブロック等のwhite-space:pre）に押されて
+   min-contentまで広がり、横スクロールが生まれるのを防ぐ */
+.hero-grid>*, .cards3>*, .feat>*, .shots>*, .steps>*, .mcp>*, .faq>*{min-width:0}
 h1,h2,h3{margin:0; font-weight:900; letter-spacing:-0.02em; line-height:1.25}
 p{margin:0}
 a{color:inherit}
