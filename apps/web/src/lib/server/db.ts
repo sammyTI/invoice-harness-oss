@@ -1,5 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import {
+  applyRounding,
   computeTotals,
   DEFAULT_SETTINGS,
   DOCUMENT_LABELS,
@@ -2196,4 +2197,335 @@ export async function plSummary(
   });
 
   return { revenue, cogs, grossProfit, sga, sgaTotal, operatingProfit, confidentialHidden, months, sgaByMonth };
+}
+
+// ---------- 仕訳エクスポート（会計ソフト連携） ----------
+// 方針: 複式簿記の完成は会計ソフト側。本ツールは全イベントを正しい仕訳形式で漏れなく出力し、
+// 勘定科目はユーザーが journal_accounts で上書きできるようにする。無い行は JOURNAL_DEFAULTS を使う。
+
+/** 仕訳マッピングの1件（借方/貸方の勘定科目名）。 */
+export interface JournalAccount {
+  debit: string;
+  credit: string;
+}
+
+/**
+ * イベント種別 → 借方/貸方の既定マッピング。
+ * key は journal_accounts.key と同一（invoice_issue / payment_in / payment_fee /
+ * order_issue / payment_out / expense_<category>）。経費は EXPENSE_CATEGORIES から自動生成する。
+ */
+export const JOURNAL_DEFAULTS: Record<string, JournalAccount> = {
+  invoice_issue: { debit: "売掛金", credit: "売上高" }, // 請求発行
+  payment_in: { debit: "普通預金", credit: "売掛金" }, // 入金
+  payment_fee: { debit: "支払手数料", credit: "売掛金" }, // 振込・決済手数料
+  order_issue: { debit: "外注費", credit: "未払金" }, // 発注・支払通知の発行
+  payment_out: { debit: "未払金", credit: "普通預金" }, // 支払実行
+  // 経費（科目別）。給与=給与手当/未払金・法定福利費=法定福利費/未払金・地代家賃=地代家賃/普通預金、
+  // その他カテゴリは「科目ラベル/普通預金」。
+  ...Object.fromEntries(
+    EXPENSE_CATEGORIES.map((c) => {
+      const credit = c.key === "salary" || c.key === "social_insurance" ? "未払金" : "普通預金";
+      return [`expense_${c.key}`, { debit: c.label, credit }];
+    })
+  ),
+};
+
+/** 経費カテゴリのイベントキー（expense_<category>）。 */
+function expenseKey(category: string): string {
+  return `expense_${category}`;
+}
+
+/**
+ * journal_accounts の全行を読み、無いキーは JOURNAL_DEFAULTS で補完した Map を返す。
+ * 既定に無いキー（例: マスタ外の経費科目）も DB に保存されていれば拾う。
+ */
+export async function getJournalAccounts(db: D1Database): Promise<Map<string, JournalAccount>> {
+  const map = new Map<string, JournalAccount>();
+  for (const [key, v] of Object.entries(JOURNAL_DEFAULTS)) map.set(key, { ...v });
+  const { results } = await db
+    .prepare("SELECT key, debit, credit FROM journal_accounts")
+    .all<{ key: string; debit: string; credit: string }>();
+  for (const r of results ?? []) map.set(r.key, { debit: r.debit, credit: r.credit });
+  return map;
+}
+
+/** 1件の科目マッピングを保存（UPSERT）。 */
+export async function setJournalAccount(db: D1Database, key: string, debit: string, credit: string): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO journal_accounts (key, debit, credit) VALUES (?1,?2,?3) ON CONFLICT(key) DO UPDATE SET debit=?2, credit=?3"
+    )
+    .bind(key, debit, credit)
+    .run();
+}
+
+/** 複数の科目マッピングを一括保存（UPSERT）。 */
+export async function setJournalAccounts(
+  db: D1Database,
+  entries: { key: string; debit: string; credit: string }[]
+): Promise<void> {
+  if (entries.length === 0) return;
+  const stmts = entries.map((e) =>
+    db
+      .prepare(
+        "INSERT INTO journal_accounts (key, debit, credit) VALUES (?1,?2,?3) ON CONFLICT(key) DO UPDATE SET debit=?2, credit=?3"
+      )
+      .bind(e.key, e.debit, e.credit)
+  );
+  await db.batch(stmts);
+}
+
+/** 仕訳1行。借方金額＝貸方金額（複式の1エントリ）。tax は借方側に付けず貸方（売上等）側の区分を持つ。 */
+export interface JournalEntry {
+  date: string; // YYYY-MM-DD
+  debit: string; // 借方勘定科目
+  debitAmount: number;
+  credit: string; // 貸方勘定科目
+  creditAmount: number;
+  taxKbn: string; // 消費税区分（弥生表現を踏襲。売上のみ課税・他は対象外）
+  taxAmount: number; // 消費税額（課税仕訳のみ>0。対象外は0）。弥生形式の税額列に使う。
+  memo: string; // 摘要
+  counterparty: string; // 取引先
+}
+
+export interface JournalInclude {
+  sales: boolean; // 売上仕訳（請求発行）
+  receipts: boolean; // 入金仕訳（入金＋振込手数料）
+  purchases: boolean; // 支払仕訳（発注/支払通知の発行＋支払実行）
+  expenses: boolean; // 経費仕訳
+}
+
+export interface JournalOptions {
+  from: string; // YYYY-MM-DD（含む）
+  to: string; // YYYY-MM-DD（含む）
+  issuerId?: string; // 会社フィルタ（未指定=全社。呼び出し側で閲覧可の会社に限定する前提）
+  include: JournalInclude;
+  /** 給与系（confidential）経費を含めるか。canViewPayroll が無いときは false を渡すこと。 */
+  includeConfidential?: boolean;
+}
+
+/**
+ * 期間内の全イベントを仕訳行の配列で返す（複式の各行）。
+ * - canceled 除外・会社フィルタ対応。
+ * - 消費税: 売上仕訳のみ「課税売上{rate}%」（税込/税抜は設定に追従）。他イベントは「対象外」。
+ * - 経費は confidential も対象になり得るが、includeConfidential=false のときは機微科目（給与・法定福利費）を除外する。
+ * 並びは日付昇順。
+ */
+export async function journalEntries(db: D1Database, opts: JournalOptions): Promise<JournalEntry[]> {
+  const { from, to, issuerId, include } = opts;
+  const includeConfidential = opts.includeConfidential ?? false;
+  const settings = await getSettings(db);
+  const inclusive = settings.tax_display === "inclusive";
+  const accounts = await getJournalAccounts(db);
+  const acc = (key: string): JournalAccount => accounts.get(key) ?? JOURNAL_DEFAULTS[key] ?? { debit: key, credit: key };
+  const entries: JournalEntry[] = [];
+
+  // ---- 売上仕訳（請求発行。税率別に按分し taxKbn を付ける）----
+  if (include.sales) {
+    const cond = ["d.type='invoice'", "d.status != 'canceled'", "d.issue_date >= ?1", "d.issue_date <= ?2"];
+    const binds: string[] = [from, to];
+    if (issuerId) {
+      binds.push(issuerId);
+      cond.push(`d.issuer_id = ?${binds.length}`);
+    }
+    const { results } = await db
+      .prepare(
+        `SELECT d.number, d.issue_date, d.subject, c.name AS client, l.tax_rate AS rate, SUM(l.amount) AS net
+         FROM documents d JOIN clients c ON c.id=d.client_id JOIN document_lines l ON l.document_id=d.id
+         WHERE ${cond.join(" AND ")}
+         GROUP BY d.id, l.tax_rate ORDER BY d.issue_date, d.number, l.tax_rate DESC`
+      )
+      .bind(...binds)
+      .all<{ number: string; issue_date: string; subject: string | null; client: string; rate: number; net: number }>();
+    const a = acc("invoice_issue");
+    for (const s of results ?? []) {
+      // 税込のグロス金額を仕訳金額とし、税額を内税/外税に応じて算出（弥生実装と同じ）。
+      let tax: number;
+      let gross: number;
+      if (inclusive) {
+        tax = applyRounding((s.net * s.rate) / (100 + s.rate), settings.tax_rounding);
+        gross = s.net;
+      } else {
+        tax = applyRounding((s.net * s.rate) / 100, settings.tax_rounding);
+        gross = s.net + tax;
+      }
+      entries.push({
+        date: s.issue_date,
+        debit: a.debit,
+        debitAmount: gross,
+        credit: a.credit,
+        creditAmount: gross,
+        taxKbn: `課税売上${s.rate}%`,
+        taxAmount: tax,
+        memo: `請求書 ${s.number} ${s.subject ?? ""}`.trim(),
+        counterparty: s.client,
+      });
+    }
+  }
+
+  // ---- 入金仕訳（入金本体＋振込手数料。invoice 帳票の payments）----
+  if (include.receipts) {
+    const cond = ["d.type='invoice'", "d.status != 'canceled'", "p.paid_date >= ?1", "p.paid_date <= ?2"];
+    const binds: string[] = [from, to];
+    if (issuerId) {
+      binds.push(issuerId);
+      cond.push(`d.issuer_id = ?${binds.length}`);
+    }
+    const { results } = await db
+      .prepare(
+        `SELECT p.paid_date, p.amount, p.fee, c.name AS client, d.number
+         FROM payments p JOIN documents d ON d.id=p.document_id JOIN clients c ON c.id=d.client_id
+         WHERE ${cond.join(" AND ")} ORDER BY p.paid_date, d.number`
+      )
+      .bind(...binds)
+      .all<{ paid_date: string | null; amount: number; fee: number; client: string; number: string }>();
+    const inAcc = acc("payment_in");
+    const feeAcc = acc("payment_fee");
+    for (const p of results ?? []) {
+      const date = p.paid_date ?? "";
+      // 入金本体: 借方 普通預金 / 貸方 売掛金（amount=請求先が支払った額）。
+      entries.push({
+        date,
+        debit: inAcc.debit,
+        debitAmount: p.amount,
+        credit: inAcc.credit,
+        creditAmount: p.amount,
+        taxKbn: "対象外",
+        taxAmount: 0,
+        memo: `入金 ${p.number} ${p.client}`.trim(),
+        counterparty: p.client,
+      });
+      // 振込・決済手数料: 借方 支払手数料 / 貸方 売掛金（fee>0 のときのみ・同日）。
+      if (p.fee > 0) {
+        entries.push({
+          date,
+          debit: feeAcc.debit,
+          debitAmount: p.fee,
+          credit: feeAcc.credit,
+          creditAmount: p.fee,
+          taxKbn: "対象外",
+          taxAmount: 0,
+          memo: `振込手数料 ${p.number} ${p.client}`.trim(),
+          counterparty: p.client,
+        });
+      }
+    }
+  }
+
+  // ---- 支払仕訳（発注/支払通知の発行＝未払計上、およびその入金記録＝支払実行）----
+  if (include.purchases) {
+    // 発行: 借方 外注費 / 貸方 未払金（total・issue_date）。
+    const issCond = [
+      "d.type IN ('order','payment_notice')",
+      "d.status != 'canceled'",
+      "d.issue_date >= ?1",
+      "d.issue_date <= ?2",
+    ];
+    const issBinds: string[] = [from, to];
+    if (issuerId) {
+      issBinds.push(issuerId);
+      issCond.push(`d.issuer_id = ?${issBinds.length}`);
+    }
+    const { results: orders } = await db
+      .prepare(
+        `SELECT d.number, d.issue_date, d.subject, d.total, c.name AS client
+         FROM documents d JOIN clients c ON c.id=d.client_id
+         WHERE ${issCond.join(" AND ")} ORDER BY d.issue_date, d.number`
+      )
+      .bind(...issBinds)
+      .all<{ number: string; issue_date: string; subject: string | null; total: number; client: string }>();
+    const orderAcc = acc("order_issue");
+    for (const o of orders ?? []) {
+      entries.push({
+        date: o.issue_date,
+        debit: orderAcc.debit,
+        debitAmount: o.total,
+        credit: orderAcc.credit,
+        creditAmount: o.total,
+        taxKbn: "対象外",
+        taxAmount: 0,
+        memo: `発注 ${o.number} ${o.subject ?? ""}`.trim(),
+        counterparty: o.client,
+      });
+    }
+    // 支払実行: 借方 未払金 / 貸方 普通預金（order/payment_notice 帳票の payments・paid_date・amount）。
+    const payCond = [
+      "d.type IN ('order','payment_notice')",
+      "d.status != 'canceled'",
+      "p.paid_date >= ?1",
+      "p.paid_date <= ?2",
+    ];
+    const payBinds: string[] = [from, to];
+    if (issuerId) {
+      payBinds.push(issuerId);
+      payCond.push(`d.issuer_id = ?${payBinds.length}`);
+    }
+    const { results: pays } = await db
+      .prepare(
+        `SELECT p.paid_date, p.amount, c.name AS client, d.number
+         FROM payments p JOIN documents d ON d.id=p.document_id JOIN clients c ON c.id=d.client_id
+         WHERE ${payCond.join(" AND ")} ORDER BY p.paid_date, d.number`
+      )
+      .bind(...payBinds)
+      .all<{ paid_date: string | null; amount: number; client: string; number: string }>();
+    const outAcc = acc("payment_out");
+    for (const p of pays ?? []) {
+      entries.push({
+        date: p.paid_date ?? "",
+        debit: outAcc.debit,
+        debitAmount: p.amount,
+        credit: outAcc.credit,
+        creditAmount: p.amount,
+        taxKbn: "対象外",
+        taxAmount: 0,
+        memo: `支払 ${p.number} ${p.client}`.trim(),
+        counterparty: p.client,
+      });
+    }
+  }
+
+  // ---- 経費仕訳（月末日付で計上。confidential は権限次第で除外）----
+  if (include.expenses) {
+    const cond = ["ym >= ?1", "ym <= ?2"];
+    // ym は YYYY-MM。from/to（YYYY-MM-DD）から月部分を取り出して比較する。
+    const binds: string[] = [from.slice(0, 7), to.slice(0, 7)];
+    if (issuerId) {
+      binds.push(issuerId);
+      cond.push(`issuer_id = ?${binds.length}`);
+    }
+    if (!includeConfidential) cond.push("confidential = 0");
+    const { results } = await db
+      .prepare(
+        `SELECT category, label, amount, ym FROM expenses WHERE ${cond.join(" AND ")} ORDER BY ym, created_at`
+      )
+      .bind(...binds)
+      .all<{ category: string; label: string | null; amount: number; ym: string }>();
+    for (const e of results ?? []) {
+      const a = acc(expenseKey(e.category)) ?? {
+        debit: expenseCategoryLabel(e.category),
+        credit: "普通預金",
+      };
+      entries.push({
+        date: monthEndDate(e.ym),
+        debit: a.debit,
+        debitAmount: e.amount,
+        credit: a.credit,
+        creditAmount: e.amount,
+        taxKbn: "対象外",
+        taxAmount: 0,
+        memo: e.label ?? `${e.ym} ${expenseCategoryLabel(e.category)}`,
+        counterparty: "",
+      });
+    }
+  }
+
+  entries.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+  return entries;
+}
+
+/** YYYY-MM の月末日（YYYY-MM-DD）を返す。 */
+function monthEndDate(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); // m月0日=当月末
+  return `${ym}-${String(last).padStart(2, "0")}`;
 }

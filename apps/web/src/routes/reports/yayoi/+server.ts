@@ -1,109 +1,37 @@
 import type { RequestHandler } from "./$types";
-import { applyRounding } from "@invoice-harness/shared";
 import { redirect } from "@sveltejs/kit";
-import { canViewFinance, getDB, getSettings } from "$lib/server/db";
+import { canViewFinance, getDB, journalEntries } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
+import { yayoiRows } from "$lib/server/journal-format";
 
-// 弥生会計 インポート形式（25列・ヘッダなし）。売上計上と入金の仕訳を出力。
-// 勘定科目は標準的な想定（売掛金/売上高/普通預金）。必要に応じて取込側で調整してください。
-
-function cell(v: string | number): string {
-  const s = String(v ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function row(cols: (string | number)[]): string {
-  return cols.map(cell).join(",");
-}
+// 弥生会計 インポート形式（25列・ヘッダなし）。売上計上と入金の仕訳を出力する。
+// 中身は共通の仕訳エンジン journalEntries（売上＋入金のみ）で生成し、レスポンスは従来形式を維持する。
+// 勘定科目は標準的な想定（売掛金/売上高/普通預金）。必要に応じて取込側または /reports/journal の設定で調整。
 
 export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   // 経営数値の閲覧権限が無い member はホームへ戻す（仕訳CSV＝売上・入金データ）。
   if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
-  const settings = await getSettings(db);
   const from = url.searchParams.get("from") ?? "";
   const to = url.searchParams.get("to") ?? "";
   const allowed = await allowedIssuerIds(db, locals.user);
 
-  const cond: string[] = ["d.type='invoice'", "d.status != 'canceled'"];
-  const binds: string[] = [];
-  let i = 1;
-  if (from) { cond.push(`d.issue_date >= ?${i++}`); binds.push(from); }
-  if (to) { cond.push(`d.issue_date <= ?${i++}`); binds.push(to); }
+  // 会社ガード: allowed が制限ありなら各社ぶんを合算して出す（未指定=許可された全社）。
+  // 期間未指定は from/to を極大範囲にして全件対象にする（従来挙動を踏襲）。
+  const f = from || "0000-01-01";
+  const t = to || "9999-12-31";
+  const include = { sales: true, receipts: true, purchases: false, expenses: false };
+
+  let entries;
   if (allowed && allowed.length) {
-    cond.push(`d.issuer_id IN (${allowed.map(() => `?${i++}`).join(",")})`);
-    binds.push(...allowed);
+    entries = [];
+    for (const iid of allowed) entries.push(...(await journalEntries(db, { from: f, to: t, issuerId: iid, include })));
+    entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  } else {
+    entries = await journalEntries(db, { from: f, to: t, include });
   }
 
-  // 売上（税率別）
-  const sales = await db
-    .prepare(
-      `SELECT d.number, d.issue_date, d.subject, c.name AS client, l.tax_rate AS rate, SUM(l.amount) AS net
-       FROM documents d JOIN clients c ON c.id=d.client_id JOIN document_lines l ON l.document_id=d.id
-       WHERE ${cond.join(" AND ")}
-       GROUP BY d.id, l.tax_rate ORDER BY d.issue_date, d.number, l.tax_rate DESC`
-    )
-    .bind(...binds)
-    .all<{ number: string; issue_date: string; subject: string | null; client: string; rate: number; net: number }>();
-
-  // 入金
-  const payCond: string[] = ["d.type='invoice'", "d.status != 'canceled'"];
-  const payBinds: string[] = [];
-  let j = 1;
-  if (from) { payCond.push(`p.paid_date >= ?${j++}`); payBinds.push(from); }
-  if (to) { payCond.push(`p.paid_date <= ?${j++}`); payBinds.push(to); }
-  if (allowed && allowed.length) {
-    payCond.push(`d.issuer_id IN (${allowed.map(() => `?${j++}`).join(",")})`);
-    payBinds.push(...allowed);
-  }
-  const pays = await db
-    .prepare(
-      `SELECT p.paid_date, p.amount, c.name AS client, d.number
-       FROM payments p JOIN documents d ON d.id=p.document_id JOIN clients c ON c.id=d.client_id
-       WHERE ${payCond.join(" AND ")} ORDER BY p.paid_date`
-    )
-    .bind(...payBinds)
-    .all<{ paid_date: string | null; amount: number; client: string; number: string }>();
-
-  const inclusive = settings.tax_display === "inclusive";
-  const lines: string[] = [];
-  let no = 1;
-  const ymd = (s: string) => s.replace(/-/g, "/");
-
-  for (const s of sales.results ?? []) {
-    let tax: number;
-    let gross: number;
-    if (inclusive) {
-      tax = applyRounding((s.net * s.rate) / (100 + s.rate), settings.tax_rounding);
-      gross = s.net;
-    } else {
-      tax = applyRounding((s.net * s.rate) / 100, settings.tax_rounding);
-      gross = s.net + tax;
-    }
-    const taxKbn = `課税売上${s.rate}%`;
-    const memo = `売上 ${s.client} ${s.subject ?? s.number}`;
-    lines.push(
-      row([
-        2000, no++, "", ymd(s.issue_date),
-        "売掛金", "", "", "対象外", gross, 0,
-        "売上高", "", "", taxKbn, gross, tax,
-        memo, "", "", 0, "", "", 0, 0, "no",
-      ])
-    );
-  }
-
-  for (const p of pays.results ?? []) {
-    lines.push(
-      row([
-        2000, no++, "", ymd(p.paid_date ?? ""),
-        "普通預金", "", "", "対象外", p.amount, 0,
-        "売掛金", "", "", "対象外", p.amount, 0,
-        `入金 ${p.client} ${p.number}`, "", "", 0, "", "", 0, 0, "no",
-      ])
-    );
-  }
-
-  const body = "﻿" + lines.join("\r\n") + "\r\n";
+  const body = "﻿" + yayoiRows(entries).join("\r\n") + "\r\n";
   return new Response(body, {
     headers: {
       "content-type": "text/csv; charset=utf-8",
