@@ -62,6 +62,9 @@
       {:else}<span class="chip chip-sent">本人へ手動で共有してください</span>{/if}
     </div>
     {#if form.mailError}<p class="cred-note">下記を手動で共有してください。</p>{/if}
+    {#if data.issuers.length > 1}
+      <p class="cred-access">アクセス: {form.accessNames && form.accessNames.length > 0 ? form.accessNames.join("・") : "全社"}</p>
+    {/if}
     <pre class="cred-box">{credText(form.cred)}</pre>
     <button class="btn btn-primary btn-sm" on:click={() => copy(form.cred)}>{copied ? "コピーしました ✓" : "コピー"}</button>
   </div>
@@ -204,6 +207,20 @@
       </div>
     </div>
     <p class="rolehint">税理士に入出金の消込や修正まで任せる場合は member を選んでください。viewer は入力が必要になったら後から変更できます。</p>
+    {#if data.issuers.length > 1 && inviteRole !== "owner"}
+      <div class="field">
+        <span class="lab">アクセスを許可する会社</span>
+        <div class="acc-list">
+          {#each data.issuers as iss}
+            <label class="acc-item">
+              <input type="checkbox" name="access_issuers" value={iss.id} />
+              <span>{iss.name}</span>
+            </label>
+          {/each}
+        </div>
+        <p class="acc-hint">未選択の場合は全社にアクセスできます。外部関係者（税理士など）には見せたい会社だけを選んでください。</p>
+      </div>
+    {/if}
     {#if data.mailEnabled}
       <label class="sendmail"><input type="checkbox" name="send_mail" checked /><span>招待メールを本人に送る（ログイン情報を記載）</span></label>
     {:else}
@@ -231,7 +248,12 @@
   .minfo { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
   .mname { font-weight: 700; }
   .memail { font-size: 12px; color: var(--muted); }
-  .statecell { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  /* td自体をflexにするとtable-cellでなくなり縦がズレるので、tdは素のまま中身で整える */
+  .statecell { white-space: nowrap; }
+  .statecell .chip { vertical-align: middle; }
+  .statecell .chip + .chip { margin-left: 6px; }
+  /* 行の高さを締める＋全セルを垂直中央に */
+  .table tbody td { padding-top: 8px; padding-bottom: 8px; vertical-align: middle; }
 
   /* 招待モーダル: ロール選択のラジオカード */
   .rolecards { display: flex; flex-direction: column; gap: 8px; }
@@ -251,9 +273,17 @@
   .sendmail input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; flex: none; }
   .sendmail-muted { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 2px 0 6px; }
   .cred-note { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .cred-access { font-size: 13px; color: var(--ink); margin: 0 0 8px; }
+  /* 招待モーダル: アクセスを許可する会社 */
+  .acc-list { display: flex; flex-direction: column; gap: 6px; }
+  .acc-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer; }
+  .acc-item input[type="checkbox"] { width: 15px; height: 15px; flex: none; }
+  .acc-hint { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 6px 0 0; }
 
-  .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
-  .rowacts { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+  .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; vertical-align: middle; }
+  .rowacts { white-space: nowrap; text-align: right; }
+  .rowacts .btn { vertical-align: middle; }
+  .rowacts form { display: inline-block; margin: 0 0 0 8px; vertical-align: middle; }
   .eform { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; padding: 4px 0; }
   .ef { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .ef .input { font-size: 13px; }

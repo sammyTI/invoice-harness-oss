@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
 import { hashPassword, randomPassword } from "$lib/server/auth";
 import { renderEmailTemplate, sendEmail } from "$lib/server/email";
-import { addMemberIssuer, getMemberIssuers, removeMemberIssuer } from "$lib/server/access";
+import { addMemberIssuer, getMemberIssuers, removeMemberIssuer, setMemberIssuers } from "$lib/server/access";
 
 // 招待・変更で選べる権限。ホワイトリスト外（demo 等）は member に矯正
 function normalizeRole(role: string): string {
@@ -51,9 +51,28 @@ export const actions: Actions = {
     if (!name || !email) return fail(400, { error: "名前とメールは必須です。" });
     if (await getMemberByEmail(db, email)) return fail(400, { error: "そのメールは既に登録されています。" });
 
+    // アクセスを許可する会社（owner は常に全社なので無視）。未選択＝全社（後方互換）
+    const allIssuers = await listIssuers(db);
+    const selectedIds =
+      role === "owner"
+        ? []
+        : fd.getAll("access_issuers").map((v) => String(v)).filter((v) => allIssuers.some((i) => i.id === v));
+
     const tempPassword = randomPassword(12);
     const { hash, salt } = await hashPassword(tempPassword);
     await createMemberWithPassword(db, name, email, role, hash, salt);
+
+    // 会社別アクセスの登録はメール送信の有無に関係なく行う（コピー共有運用でも権限は効くべき）
+    if (selectedIds.length > 0) {
+      const created = await getMemberByEmail(db, email);
+      if (created) await setMemberIssuers(db, created.id, selectedIds);
+    }
+
+    // 招待結果に表示するアクセス範囲。全社＝null 相当、選択あり＝その社名リスト
+    const accessNames =
+      selectedIds.length > 0
+        ? allIssuers.filter((i) => selectedIds.includes(i.id)).map((i) => i.name)
+        : null;
 
     const loginUrl = `${url.origin}/login`;
     // メール連携済み かつ 送信チェックONのときだけ送信。それ以外は資格情報を画面表示してコピペで共有
@@ -65,7 +84,9 @@ export const actions: Actions = {
       const tpl = (await getEmailTemplate(db, "invite")) ?? INVITE_TEMPLATE_DEFAULT;
       // 招待者名（ログイン中ユーザー）と会社名（自社情報の先頭）を差し込み用に用意
       const inviter = locals.user?.name ?? "";
-      const company = (await listIssuers(db))[0]?.name ?? "Invoice Harness";
+      // 会社が選択されていれば選択社名を「・」で連結（漏洩防止）。未選択（全社）は従来どおり先頭社名
+      const company =
+        accessNames && accessNames.length > 0 ? accessNames.join("・") : allIssuers[0]?.name ?? "Invoice Harness";
       const mail = renderEmailTemplate(tpl, { name, email, password: tempPassword, link: loginUrl, inviter, company });
       const res = await sendEmail(mailCfg, { to: email, subject: mail.subject, html: mail.html });
       emailed = res.ok;
@@ -73,7 +94,7 @@ export const actions: Actions = {
       if (!res.ok) mailError = res.reason;
       await logEmail(db, { recipient: email, subject: mail.subject, kind: "invite", ok: res.ok, detail: res.reason });
     }
-    return { ok: true, emailed, mailError, cred: { name, email, password: tempPassword, loginUrl } };
+    return { ok: true, emailed, mailError, accessNames, cred: { name, email, password: tempPassword, loginUrl } };
   },
 
   update: async ({ request, platform }) => {
