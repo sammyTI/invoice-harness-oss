@@ -41,6 +41,14 @@ if (existsSync(target)) {
   console.error(`✗ フォルダ「${dir}」は既に存在します。別名を指定してください:\n    npx create-invoice-harness <フォルダ名>`);
   process.exit(1);
 }
+// Windowsのパス長制限対策: 深いフォルダで実行するとローカルDB(.wrangler配下の長いパス)が
+// SQLITE_CANTOPEN で開けなくなる。余裕を見て90文字超は中止して短い場所を案内する。
+if (process.platform === "win32" && target.length > 90) {
+  console.error(`✗ インストール先のパスが長すぎます（${target.length}文字）。`);
+  console.error(`  Windowsのパス長制限により、ローカルデータベースの作成に失敗することがあります。`);
+  console.error(`  もっと浅い場所で実行してください（例: C:\\dev で npx create-invoice-harness）。`);
+  process.exit(1);
+}
 
 console.log(`▸ リポジトリを取得します → ${dir}/`);
 run(`git clone --depth 1 ${REPO} "${target}"`);
