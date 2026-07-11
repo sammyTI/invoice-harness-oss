@@ -15,6 +15,7 @@ import {
   getDB,
   getDocument,
   getEmailTemplate,
+  getMailConfig,
   getProject,
   getSettings,
   getRelated,
@@ -36,7 +37,8 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
   const allowed = await allowedIssuerIds(db, locals.user);
   if (!canAccessIssuer(allowed, full.doc.issuer_id)) throw error(404, "帳票が見つかりません");
   const related = await getRelated(db, full.doc);
-  const mailEnabled = !!platform?.env?.RESEND_API_KEY;
+  const mail = await getMailConfig(db, platform?.env);
+  const mailEnabled = !!mail.RESEND_API_KEY;
   const shareUrl = full.doc.share_token ? `${url.origin}/share/${full.doc.share_token}` : null;
   const divisionName = full.doc.division_id
     ? (await listDivisions(db)).find((d) => d.id === full.doc.division_id)?.name ?? null
@@ -157,7 +159,8 @@ export const actions: Actions = {
       due: full.doc.due_date ?? "",
       link: token ? `${url.origin}/share/${token}` : `${url.origin}/doc/${full.doc.id}/print`,
     });
-    const result = await sendEmail(platform?.env, {
+    const mailCfg = await getMailConfig(db, platform?.env);
+    const result = await sendEmail(mailCfg, {
       to: full.client.email ?? "",
       subject: mail.subject,
       html: mail.html,

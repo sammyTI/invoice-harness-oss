@@ -7,26 +7,59 @@
 
 <section class="section">
   <div class="section-head"><h2>メール送付（Resend）</h2>
-    {#if data.mailEnabled}<span class="chip chip-paid">連携済み</span>{:else}<span class="chip chip-draft">未連携</span>{/if}
+    {#if data.mail.configured}<span class="chip chip-paid">連携済み</span>{:else}<span class="chip chip-draft">未連携</span>{/if}
   </div>
-  {#if data.mailEnabled}
-    <p class="desc">メール送付が有効です。差出人：<code>{data.mailFrom || "(既定)"}</code></p>
+
+  {#if form?.mailSaved}
+    <div class="flash-ok">保存しました。メール送付が有効になりました。</div>
+  {/if}
+  {#if form?.mailCleared}
+    <div class="flash-ok">メール連携を解除しました。</div>
+  {/if}
+  {#if form?.mailError}
+    <div class="flash-err">{form.mailError}</div>
+  {/if}
+
+  {#if data.mail.configured}
+    <p class="desc">
+      連携済み（キー：<code>{data.mail.maskedKey}</code>・差出人：<code>{data.mail.from || "(既定)"}</code>・保存場所：<b>{data.mail.source === "db" ? "アプリ設定" : "環境変数"}</b>）
+    </p>
+    {#if data.mail.source === "env"}
+      <p class="note-warn">APIキーは<b>環境変数</b>で設定されています。この画面から入力すると、アプリ設定の値が優先されます。</p>
+    {:else}
+      <form method="POST" action="?/clearMail" class="inline-form">
+        <button class="del" type="submit">解除</button>
+      </form>
+    {/if}
   {:else}
     <p class="desc">メール送付は<b>任意</b>です。未連携でも帳票の作成・PDF・招待リンク発行は使えます。請求書のメール自動送付・催促メールを使う場合のみ、無料の <a href="https://resend.com" target="_blank" rel="noopener">Resend</a>（3,000通/月）を連携してください。</p>
-    <div class="howto">
-      <h3>連携手順</h3>
-      <ol>
-        <li>Resend に登録し、API キーを取得（独自ドメインを認証すると任意の宛先に送れます）</li>
-        <li><b>ローカル開発</b>：<code>apps/web/.dev.vars</code> に記入
-          <pre>RESEND_API_KEY="re_xxxxx"
-MAIL_FROM="会社名 &lt;billing@yourdomain.com&gt;"</pre>
-        </li>
-        <li><b>本番(Cloudflare Pages)</b>：<code>wrangler pages secret put RESEND_API_KEY</code> と <code>MAIL_FROM</code> を設定</li>
-        <li>催促メールの自動送信を使う場合は <code>apps/worker</code> にも同じシークレットを設定</li>
-      </ol>
-      <p class="note-warn">未認証ドメインでは差出人 <code>onboarding@resend.dev</code> 固定・宛先は自分のResend登録メールのみになります。</p>
-    </div>
   {/if}
+
+  <form method="POST" action="?/saveMail" class="mail-form">
+    <div class="field">
+      <span class="lab">Resend APIキー</span>
+      <input class="input" type="password" name="resend_api_key" placeholder="re_..." autocomplete="off" />
+      {#if data.mail.configured && data.mail.source === "db"}
+        <span class="fieldhint">空のまま保存すると現在のキーを保持します。</span>
+      {/if}
+    </div>
+    <div class="field">
+      <span class="lab">差出人（任意）</span>
+      <input class="input" name="mail_from" placeholder="Extrahands &lt;meishi@example.co.jp&gt;" value={data.mail.from ?? ""} />
+    </div>
+    <button class="btn btn-primary" type="submit">保存する</button>
+  </form>
+
+  <div class="howto">
+    <h3>連携手順</h3>
+    <ol>
+      <li>Resend に登録し、API キーを取得（独自ドメインを認証すると任意の宛先に送れます）</li>
+      <li>上のフォームに API キーと差出人を入力して保存（この画面での設定が環境変数より優先されます）</li>
+      <li>環境変数で設定する場合は <code>apps/web/.dev.vars</code>（ローカル）または <code>wrangler pages secret put RESEND_API_KEY</code>（本番）も利用できます</li>
+      <li>催促メールの自動送信を使う場合は <code>apps/worker</code> にも同じシークレットを設定</li>
+    </ol>
+    <p class="note-warn">未認証ドメインでは差出人 <code>onboarding@resend.dev</code> 固定・宛先は自分のResend登録メールのみになります。</p>
+  </div>
 </section>
 
 <h2 class="sub">API / AI連携（MCP）</h2>
@@ -97,6 +130,10 @@ MAIL_FROM="会社名 &lt;billing@yourdomain.com&gt;"</pre>
   .layout { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; align-items: start; }
   @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
   .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+  .inline-form { display: inline-block; margin: 4px 0 8px; }
+  .mail-form { display: grid; gap: 12px; max-width: 480px; margin: 12px 0 4px; }
+  .fieldhint { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+  .flash-err { background: var(--red-soft); color: var(--red); border: 1px solid #f0c4c4; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin: 8px 0; }
   .howto { padding: 18px; margin-top: 16px; }
   .howto h3 { font-size: 14px; margin: 0 0 8px; }
   .howto p { font-size: 13px; color: var(--ink-2); }

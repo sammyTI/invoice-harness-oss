@@ -82,6 +82,46 @@ export async function updateSettings(db: D1Database, s: Settings): Promise<void>
     .run();
 }
 
+// ---------- メール連携設定（Resend） ----------
+// settings 型（getSettings/updateSettings）には含めない。
+// 理由: update_settings API/MCP 経由で APIキーが読み書き・漏洩するのを防ぐため専用関数で扱う。
+
+export interface MailConfig {
+  RESEND_API_KEY?: string;
+  MAIL_FROM?: string;
+  /** キーの出所（db=アプリ設定 / env=環境変数 / none=未設定）。 */
+  source: "db" | "env" | "none";
+}
+
+/** メール設定を取得。DB保存値を優先し、無ければ環境変数にフォールバック。 */
+export async function getMailConfig(
+  db: D1Database,
+  env?: { RESEND_API_KEY?: string; MAIL_FROM?: string }
+): Promise<MailConfig> {
+  const row = await db
+    .prepare("SELECT resend_api_key, mail_from FROM settings WHERE id = 'default'")
+    .first<{ resend_api_key: string | null; mail_from: string | null }>();
+  const dbKey = row?.resend_api_key?.trim() || "";
+  const dbFrom = row?.mail_from?.trim() || "";
+  if (dbKey) {
+    // DB保存分を優先。差出人はDB→env の順で拾う
+    return { RESEND_API_KEY: dbKey, MAIL_FROM: dbFrom || env?.MAIL_FROM || undefined, source: "db" };
+  }
+  const envKey = env?.RESEND_API_KEY?.trim() || "";
+  if (envKey) {
+    return { RESEND_API_KEY: envKey, MAIL_FROM: env?.MAIL_FROM || undefined, source: "env" };
+  }
+  return { source: "none" };
+}
+
+/** メール設定を保存。key=null で APIキー解除、from=null で差出人解除。 */
+export async function setMailConfig(db: D1Database, key: string | null, from: string | null): Promise<void> {
+  await db
+    .prepare("UPDATE settings SET resend_api_key = ?1, mail_from = ?2 WHERE id = 'default'")
+    .bind(key, from)
+    .run();
+}
+
 // ---------- 備考テンプレート ----------
 
 export interface NoteTemplate {

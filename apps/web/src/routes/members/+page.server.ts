@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { countOwners, createMemberWithPassword, deleteMember, getDB, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
+import { countOwners, createMemberWithPassword, deleteMember, getDB, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, updateMember } from "$lib/server/db";
 import { hashPassword, randomPassword } from "$lib/server/auth";
 import { sendEmail } from "$lib/server/email";
 import { addMemberIssuer, getMemberIssuers, removeMemberIssuer } from "$lib/server/access";
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
     issuers: await listIssuers(db),
     assign,
     me: locals.user ?? null,
-    mailEnabled: !!platform?.env?.RESEND_API_KEY,
+    mailEnabled: !!(await getMailConfig(db, platform?.env)).RESEND_API_KEY,
   };
 };
 
@@ -52,9 +52,10 @@ export const actions: Actions = {
     const loginUrl = `${url.origin}/login`;
     // メール連携済みなら送信。未連携でも資格情報を画面表示してコピペできる
     let emailed = false;
-    if (platform?.env?.RESEND_API_KEY) {
+    const mailCfg = await getMailConfig(db, platform?.env);
+    if (mailCfg.RESEND_API_KEY) {
       const mail = credMail(name, email, tempPassword, loginUrl);
-      const res = await sendEmail(platform?.env, { to: email, subject: mail.subject, html: mail.html });
+      const res = await sendEmail(mailCfg, { to: email, subject: mail.subject, html: mail.html });
       emailed = res.ok;
       await logEmail(db, { recipient: email, subject: mail.subject, kind: "invite", ok: res.ok, detail: res.reason });
     }

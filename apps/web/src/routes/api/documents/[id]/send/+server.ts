@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, formatYen } from "@invoice-harness/shared";
-import { ensureShareToken, getDB, getDocument, getEmailTemplate, logEmail, markSent } from "$lib/server/db";
+import { ensureShareToken, getDB, getDocument, getEmailTemplate, getMailConfig, logEmail, markSent } from "$lib/server/db";
 import { renderEmailTemplate, sendEmail } from "$lib/server/email";
 
 // 帳票を取引先へメール送付（公開共有リンク付き）。Resend 未設定時は「送付済み」記録のみ。
@@ -25,7 +25,8 @@ export const POST: RequestHandler = async ({ platform, params, url }) => {
     due: full.doc.due_date ?? "",
     link: token ? `${url.origin}/share/${token}` : `${url.origin}/doc/${full.doc.id}/print`,
   });
-  const result = await sendEmail(platform?.env, { to: full.client.email ?? "", subject: mail.subject, html: mail.html });
+  const mailCfg = await getMailConfig(db, platform?.env);
+  const result = await sendEmail(mailCfg, { to: full.client.email ?? "", subject: mail.subject, html: mail.html });
   await markSent(db, params.id, new Date().toISOString(), "api");
   await logEmail(db, {
     document_id: params.id,
