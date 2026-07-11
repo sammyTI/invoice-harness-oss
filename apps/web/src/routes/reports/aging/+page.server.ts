@@ -1,7 +1,8 @@
 import type { PageServerLoad } from "./$types";
-import { getDB } from "$lib/server/db";
+import { canViewFinance, getDB } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { todayJst } from "$lib/server/today";
+import { redirect } from "@sveltejs/kit";
 
 function daysBetween(a: string, b: string): number {
   const da = new Date(a + "T00:00:00Z").getTime();
@@ -11,6 +12,8 @@ function daysBetween(a: string, b: string): number {
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（売掛金年齢表は債権残高＝経営数値）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const today = todayJst();
 
   const allowed = await allowedIssuerIds(db, locals.user);

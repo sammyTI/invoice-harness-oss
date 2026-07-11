@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { applyRounding } from "@invoice-harness/shared";
-import { getDB, getSettings } from "$lib/server/db";
+import { redirect } from "@sveltejs/kit";
+import { canViewFinance, getDB, getSettings } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 // 弥生会計 インポート形式（25列・ヘッダなし）。売上計上と入金の仕訳を出力。
@@ -17,6 +18,8 @@ function row(cols: (string | number)[]): string {
 
 export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（仕訳CSV＝売上・入金データ）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const settings = await getSettings(db);
   const from = url.searchParams.get("from") ?? "";
   const to = url.searchParams.get("to") ?? "";

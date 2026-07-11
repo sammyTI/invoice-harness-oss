@@ -1,14 +1,16 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { canViewPayroll, getDB, getSettings, listIssuers, plSummary } from "$lib/server/db";
+import { canViewFinance, canViewPayroll, getDB, getSettings, listIssuers, plSummary } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 import { todayJst } from "$lib/server/today";
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 
 // 損益計算書（PL）。会計年度の12ヶ月×科目マトリクスで、売上・原価・粗利・販管費・営業利益を見る。
 // 給与・法定福利費は機微科目のため、閲覧権限（canViewPayroll）が無ければ粗利までしか出さない。
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（PL は経営数値そのもの）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const settings = await getSettings(db);
   const today = todayJst();
 

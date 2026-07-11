@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { getDB } from "$lib/server/db";
+import { redirect } from "@sveltejs/kit";
+import { canViewFinance, getDB } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const STATUS_JP: Record<string, string> = {
@@ -18,6 +19,8 @@ function csvCell(v: string | number | null): string {
 
 export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（帳票明細CSV＝売上データ）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const from = url.searchParams.get("from") ?? "";
   const to = url.searchParams.get("to") ?? "";
 

@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, setPayrollAccess, updateMember } from "$lib/server/db";
+import { countOwners, createMemberWithPassword, deleteMember, getDB, getEmailTemplate, getMailConfig, getMemberByEmail, listIssuers, listMembers, logEmail, setFinanceAccess, setPayrollAccess, updateMember } from "$lib/server/db";
 import { hashPassword, randomPassword } from "$lib/server/auth";
 import { renderEmailTemplate, sendEmail } from "$lib/server/email";
 import { addMemberIssuer, getMemberIssuers, removeMemberIssuer, setMemberIssuers } from "$lib/server/access";
@@ -119,6 +119,8 @@ export const actions: Actions = {
     // 給与・人件費の閲覧許可（owner は常に可なので設定不要）。チェックONで付与、OFFで剥奪。
     if (role !== "owner") {
       await setPayrollAccess(db, id, String(fd.get("can_view_payroll") ?? "") === "on");
+      // 経営数値（売上・利益・PL・各種レポート）の閲覧許可。owner/viewer/demo は常に可なので member のみ設定。
+      await setFinanceAccess(db, id, String(fd.get("can_view_finance") ?? "") === "on");
     }
     return { ok: true, saved: id };
   },

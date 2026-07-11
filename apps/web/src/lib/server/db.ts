@@ -1211,11 +1211,12 @@ export interface Member {
   password_hash?: string | null;
   salt?: string | null;
   can_view_payroll?: number;
+  can_view_finance?: number;
 }
 
 export async function listMembers(db: D1Database): Promise<Member[]> {
   const { results } = await db
-    .prepare("SELECT id,name,email,role,status,invite_token,must_change_password,can_view_payroll FROM members ORDER BY created_at")
+    .prepare("SELECT id,name,email,role,status,invite_token,must_change_password,can_view_payroll,can_view_finance FROM members ORDER BY created_at")
     .all<Member>();
   return results ?? [];
 }
@@ -1987,6 +1988,34 @@ export async function canViewPayroll(
 export async function setPayrollAccess(db: D1Database, memberId: string, allow: boolean): Promise<void> {
   await db
     .prepare("UPDATE members SET can_view_payroll = ?2 WHERE id = ?1")
+    .bind(memberId, allow ? 1 : 0)
+    .run();
+}
+
+// ---------- 経営数値（売上・利益・PL・レポート）の閲覧権限 ----------
+
+/**
+ * 経営数値（売上・利益・PL・各種レポート）を閲覧できるか。
+ * owner は常に可。viewer（税理士等）は数字の確認が業務なので常に可。demo も可（サンプル閲覧）。
+ * それ以外（member）は既定不可で、members.can_view_finance=1 のときのみ可（経営幹部にのみ許可）。
+ */
+export async function canViewFinance(
+  db: D1Database,
+  user: { id: string; role: string } | undefined | null
+): Promise<boolean> {
+  if (!user) return false;
+  if (user.role === "owner" || user.role === "viewer" || user.role === "demo") return true;
+  const row = await db
+    .prepare("SELECT can_view_finance FROM members WHERE id = ?1")
+    .bind(user.id)
+    .first<{ can_view_finance: number }>();
+  return (row?.can_view_finance ?? 0) === 1;
+}
+
+/** メンバーの経営数値閲覧権限を付与/剥奪する。 */
+export async function setFinanceAccess(db: D1Database, memberId: string, allow: boolean): Promise<void> {
+  await db
+    .prepare("UPDATE members SET can_view_finance = ?2 WHERE id = ?1")
     .bind(memberId, allow ? 1 : 0)
     .run();
 }

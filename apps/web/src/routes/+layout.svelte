@@ -66,7 +66,7 @@
     <nav>
       <a class:active={path === "/"} href="/">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-        <span>収支一覧</span>
+        <span>{data?.finance === false ? "ホーム" : "収支一覧"}</span>
       </a>
 
       <div class="sec">帳票</div>
@@ -133,6 +133,7 @@
         </a>
       {/if}
 
+      {#if data?.finance}
       <div class="sec">レポート・会計</div>
       <a class:active={active("/monthly")} href="/monthly">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="16" y1="2.5" x2="16" y2="6.5"/></svg>
@@ -158,6 +159,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>弥生 仕訳CSV</span>
       </a>
+      {/if}
 
       {#if isAdmin}
         <div class="sec">設定</div>

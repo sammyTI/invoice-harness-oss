@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { lifecycle } from "@invoice-harness/shared";
-import { cashFlowForMonth, effectiveDivision, getDB, listDocuments, listIssuers } from "$lib/server/db";
+import { redirect } from "@sveltejs/kit";
+import { canViewFinance, cashFlowForMonth, effectiveDivision, getDB, listDocuments, listIssuers } from "$lib/server/db";
 import type { CashFlowRow } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { csvResponse } from "$lib/server/csv";
@@ -12,6 +13,8 @@ const EXPENSE = new Set(["order", "payment_notice"]);
 // 一覧（monthly/+page.server.ts）と同じフィルタ条件を適用してCSVを返す。
 export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（月次入出金CSV＝売上・利益データ）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const allowed = await allowedIssuerIds(db, locals.user);
   let issuers = await listIssuers(db);
   if (allowed) issuers = issuers.filter((i) => allowed.includes(i.id));

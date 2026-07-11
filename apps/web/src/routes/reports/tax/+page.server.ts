@@ -1,11 +1,14 @@
 import type { PageServerLoad } from "./$types";
 import { applyRounding, fiscalYearByEndYear, fiscalYearForDate } from "@invoice-harness/shared";
-import { getDB, getSettings } from "$lib/server/db";
+import { canViewFinance, getDB, getSettings } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { todayJst } from "$lib/server/today";
+import { redirect } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const settings = await getSettings(db);
   const today = todayJst();
   const current = fiscalYearForDate(today, settings.fiscal_month);

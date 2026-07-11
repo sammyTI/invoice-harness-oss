@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { cashFlowForMonth, countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
+import { canViewFinance, cashFlowForMonth, countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { todayJst, thisMonthJst } from "$lib/server/today";
 
@@ -14,6 +14,37 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const allDocs = await listDocuments(db, undefined, allowed);
   let issuers = await listIssuers(db);
   if (allowed) issuers = issuers.filter((i) => allowed.includes(i.id));
+
+  // 経営数値（売上・利益・PL・各種レポート）の閲覧権限。
+  // 一般 member（finance=false）には金額系を一切返さず、実務ダッシュボードのみ返す。
+  const finance = await canViewFinance(db, locals.user);
+  if (!finance) {
+    // 実務データ（件数・自分が動かす帳票のワークベンチ）だけを組み立てる。
+    const clientsCount = (await listClients(db)).length;
+    const activeProjects = (await listProjects(db)).filter((p) => p.status === "active").length;
+    // 発行済で未送付（送付待ち）。lifecycle の issued 状態＝locked かつ status が sent/paid/canceled でない。
+    const unsent = allDocs
+      .filter((d) => d.locked && d.status !== "sent" && d.status !== "paid" && d.status !== "canceled")
+      .slice(0, 8);
+    // 送付済・入金待ち（invoice のみ）。期日が近い順（期日なしは末尾）。
+    const unpaidSoon = allDocs
+      .filter((d) => d.type === "invoice" && d.status === "sent")
+      .sort((a, b) => (a.due_date ?? "9999-99-99").localeCompare(b.due_date ?? "9999-99-99"))
+      .slice(0, 8);
+    // 最近の帳票（作成日降順で listDocuments が返す並びの先頭）。
+    const recent = allDocs.slice(0, 8);
+    return {
+      finance,
+      hub: { clients: clientsCount, activeProjects },
+      workbench: {
+        unsent,
+        unsentTotal: allDocs.filter((d) => d.locked && d.status !== "sent" && d.status !== "paid" && d.status !== "canceled").length,
+        unpaidSoon,
+        unpaidSoonTotal: allDocs.filter((d) => d.type === "invoice" && d.status === "sent").length,
+        recent,
+      },
+    };
+  }
 
   // 会社（発行元）フィルタ。空＝（閲覧可能な）全社合算。
   const issParam = url.searchParams.get("iss") ?? "";
@@ -169,6 +200,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   }
 
   return {
+    finance,
     hub,
     checklist,
     fyLabel: periodLabel,

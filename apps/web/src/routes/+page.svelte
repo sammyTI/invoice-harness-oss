@@ -24,6 +24,99 @@
   $: toggleHref = `/?mode=${data.calendarMode ? "fiscal" : "calendar"}${issQ}${divQ}`;
 </script>
 
+{#if data.finance === false}
+  <!-- 一般メンバー向け実務ダッシュボード。経営数値（売上・利益・PL・レポート）は一切表示しない。 -->
+  <div class="page-head">
+    <h1 class="page-title">ホーム</h1>
+    {#if !isViewer}<a class="btn btn-primary btn-sm" href="/new?type=invoice" title="請求書を作成">＋ 新規作成</a>{/if}
+  </div>
+
+  <nav class="hubnav wbnav" aria-label="ダッシュボード">
+    <a class="card hubcard" href="/clients">
+      <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="hlabel">顧客情報</span>
+      <span class="num hnum">{data.hub.clients}</span>
+      <span class="hunit">社</span>
+    </a>
+    <a class="card hubcard" href="/projects">
+      <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+      <span class="hlabel">プロジェクト情報</span>
+      <span class="num hnum">{data.hub.activeProjects}</span>
+      <span class="hunit">進行中</span>
+    </a>
+  </nav>
+
+  <div class="wbgrid">
+    <!-- 送付待ち（発行済で未送付） -->
+    <div class="card wbcard">
+      <div class="wb-head">
+        <h2>送付待ち<span class="wb-count">{data.workbench.unsentTotal}件</span></h2>
+        <a class="wb-more" href="/docs/invoice">一覧 →</a>
+      </div>
+      {#if data.workbench.unsent.length === 0}
+        <p class="wb-empty">送付待ちの帳票はありません。</p>
+      {:else}
+        <ul class="wb-list">
+          {#each data.workbench.unsent as d}
+            <li>
+              <a class="wb-doc" href={`/doc/${d.id}`}>
+                <span class="tchip">{DOCUMENT_SHORT[d.type]}</span>
+                <span class="wb-name">{d.client_name}</span>
+                <span class="wb-no num">{d.number}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    <!-- 入金待ち（送付済・期日近い順） -->
+    <div class="card wbcard">
+      <div class="wb-head">
+        <h2>入金待ち<span class="wb-count">{data.workbench.unpaidSoonTotal}件</span></h2>
+        <a class="wb-more" href="/docs/invoice">一覧 →</a>
+      </div>
+      {#if data.workbench.unpaidSoon.length === 0}
+        <p class="wb-empty">入金待ちの請求書はありません。</p>
+      {:else}
+        <ul class="wb-list">
+          {#each data.workbench.unpaidSoon as d}
+            <li>
+              <a class="wb-doc" href={`/doc/${d.id}`}>
+                <span class="tchip">{DOCUMENT_SHORT[d.type]}</span>
+                <span class="wb-name">{d.client_name}</span>
+                <span class="wb-due num">{d.due_date ? `期日 ${d.due_date}` : "期日未設定"}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    <!-- 最近の帳票 -->
+    <div class="card wbcard">
+      <div class="wb-head">
+        <h2>最近の帳票</h2>
+        <a class="wb-more" href="/search">検索 →</a>
+      </div>
+      {#if data.workbench.recent.length === 0}
+        <p class="wb-empty">まだ帳票がありません。{#if !isViewer}<a href="/new?type=invoice">請求書を作成</a>してください。{/if}</p>
+      {:else}
+        <ul class="wb-list">
+          {#each data.workbench.recent as d}
+            <li>
+              <a class="wb-doc" href={`/doc/${d.id}`}>
+                <span class="tchip">{DOCUMENT_SHORT[d.type]}</span>
+                <span class="wb-name">{d.client_name}</span>
+                <span class="chip {lifecycle(d).cls} wb-state">{lifecycle(d).label}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  </div>
+{:else}
 <div class="page-head">
   <h1 class="page-title">収支一覧<span class="tag">{data.fyLabel}</span></h1>
   <div class="fynav">
@@ -272,8 +365,31 @@
     </table>
   </div>
 {/if}
+{/if}
 
 <style>
+  /* 実務ダッシュボード（一般メンバー向け・経営数値なし） */
+  .wbnav { grid-template-columns: repeat(2, 1fr); max-width: 480px; }
+  @media (max-width: 640px) { .wbnav { grid-template-columns: repeat(2, 1fr); } }
+  .wbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
+  @media (max-width: 980px) { .wbgrid { grid-template-columns: 1fr; } }
+  .wbcard { padding: 16px 18px; }
+  .wb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .wb-head h2 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .wb-count { font-size: 12px; font-weight: 800; color: var(--primary-d); background: var(--primary-soft, #e5edfb); padding: 2px 8px; border-radius: 999px; }
+  .wb-more { font-size: 12px; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
+  .wb-more:hover { text-decoration: underline; }
+  .wb-empty { font-size: 13px; color: var(--muted); margin: 6px 0 2px; }
+  .wb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .wb-list li { border-top: 1px solid var(--line); }
+  .wb-list li:first-child { border-top: none; }
+  .wb-doc { display: flex; align-items: center; gap: 8px; padding: 9px 0; text-decoration: none; color: inherit; }
+  .wb-doc:hover .wb-name { color: var(--primary-d); text-decoration: underline; }
+  .wb-name { font-weight: 700; font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wb-no { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .wb-due { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+  .wb-state { flex: none; }
+
   /* はじめにやること（オンボーディング・チェックリスト） */
   .getstarted { padding: 18px 20px; margin: 0 0 18px; }
   .gs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

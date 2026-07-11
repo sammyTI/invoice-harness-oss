@@ -1,16 +1,22 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { fiscalYearByEndYear, fiscalYearForDate } from "@invoice-harness/shared";
-import { effectiveDivision, getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
+import { canViewFinance, effectiveDivision, getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
 import { todayJst } from "$lib/server/today";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
 
-// 財務サマリー（PL）。会計年度・会社別・部門別の売上/費用/利益/入金。
+// 財務サマリー（PL）。会計年度・会社別・部門別の売上/費用/入金。
 // クエリ: ?fy=2027（決算年）, ?issuer=<id or 会社名>
-export const GET: RequestHandler = async ({ platform, url }) => {
+// 経営数値ガード: /api/ は Bearer トークン認証（hooks）でメンバー識別が無いため、
+// セッションユーザ（locals.user）が存在しかつ経営数値の閲覧権限が無い場合のみ 403 で拒否する。
+// トークン経由（locals.user 無し）は owner 発行の全社トークン前提で従来どおり通す。
+export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  if (locals.user && !(await canViewFinance(db, locals.user))) {
+    return json({ error: "forbidden: finance access required" }, { status: 403 });
+  }
   const settings = await getSettings(db);
   const issuers = await listIssuers(db);
   const all = (await listDocuments(db)).filter((d) => d.status !== "canceled");

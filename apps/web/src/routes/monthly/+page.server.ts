@@ -1,8 +1,9 @@
 import type { PageServerLoad } from "./$types";
-import { cashFlowForMonth, getDB, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
+import { canViewFinance, cashFlowForMonth, getDB, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
 import type { DocumentType } from "@invoice-harness/shared";
 import { allowedIssuerIds } from "$lib/server/access";
 import { todayJst } from "$lib/server/today";
+import { redirect } from "@sveltejs/kit";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
@@ -30,6 +31,8 @@ interface MonthlyRow {
 //  - cash（入出金ベース）: payments（paid_date × amount）基準。部分入金もその発生月に正しく計上する。
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
+  // 経営数値の閲覧権限が無い member はホームへ戻す（月次入出金は売上・利益の集計）。
+  if (!(await canViewFinance(db, locals.user))) throw redirect(303, "/");
   const allowed = await allowedIssuerIds(db, locals.user);
   const all = await listDocuments(db, undefined, allowed);
   let issuers = await listIssuers(db);
