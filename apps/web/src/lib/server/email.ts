@@ -10,6 +10,40 @@ export interface MailEnv {
   MAIL_FROM?: string;
 }
 
+/**
+ * Resend の失敗レスポンスから、日本語の「状況＋対処」解説を返す。
+ * 該当パターンがなければ null。
+ */
+export function explainResendError(status: number, body: string): string | null {
+  const b = body.toLowerCase();
+  // 401: APIキー無効
+  if (status === 401) {
+    return "状況: APIキーが無効です。／対処: 設定 ▸ API/連携 でResendのAPIキー（re_...）を確認し、保存し直してください。";
+  }
+  // 403: ドメイン未認証など
+  if (status === 403) {
+    if (b.includes("not verified")) {
+      return "状況: 差出人ドメインがResendで未認証です（DNSレコードの反映待ち、またはResend側でVerify未実行の可能性）。／対処: resend.com/domains でドメインの状態を確認してください。DNS追加直後は反映まで数分〜1時間かかることがあります。認証完了までは差出人を onboarding@resend.dev にすれば自分のResend登録アドレス宛てにのみ送れます。";
+    }
+    if (b.includes("testing emails") || b.includes("your own email")) {
+      return "状況: ドメイン未認証のため、Resendに登録した自分のメールアドレス宛てにしか送れません。／対処: resend.com/domains でドメイン認証を完了すると任意の宛先に送れます。";
+    }
+  }
+  // 422: 差出人/宛先の形式不正
+  if (status === 422) {
+    return "状況: 差出人または宛先の形式が正しくありません。／対処: 差出人は『名前 <mail@example.com>』の形式か、認証済みドメインのアドレスかを確認してください。";
+  }
+  // 429: レート制限
+  if (status === 429) {
+    return "状況: 送信レート制限（無料枠: 100通/日）に達しています。／対処: 時間をおいて再試行してください。";
+  }
+  // 500以上: Resend側障害
+  if (status >= 500) {
+    return "状況: Resend側で障害が起きている可能性があります。／対処: 時間をおいて再試行してください。";
+  }
+  return null;
+}
+
 /** Resend でメール送信。APIキー未設定なら skipped で返す（壊さない）。 */
 export async function sendEmail(
   env: MailEnv | undefined,
@@ -27,7 +61,8 @@ export async function sendEmail(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    return { ok: false, reason: `Resend ${res.status}: ${text.slice(0, 200)}` };
+    const hint = explainResendError(res.status, text);
+    return { ok: false, reason: `Resend ${res.status}: ${text.slice(0, 200)}${hint ? `\n${hint}` : ""}` };
   }
   const data = (await res.json().catch(() => ({}))) as { id?: string };
   return { ok: true, id: data.id };
