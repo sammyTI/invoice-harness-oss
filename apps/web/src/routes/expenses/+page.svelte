@@ -43,6 +43,10 @@
     <a class="btn btn-quiet btn-sm" href={`/expenses?m=${data.prev}${issQ}`}>← 前月</a>
     {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/expenses${data.issuerId ? `?iss=${data.issuerId}` : ""}`}>今月</a>{/if}
     <a class="btn btn-quiet btn-sm" href={`/expenses?m=${data.next}${issQ}`}>翌月 →</a>
+    <a class="btn btn-quiet btn-sm csv-btn" href={`${$page.url.pathname}/export.csv${$page.url.search}`} title="表示中の経費をCSVで出力">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+      CSV
+    </a>
     {#if !isViewer}<button class="btn btn-primary btn-sm" type="button" on:click={openAdd}>＋ 新規作成</button>{/if}
   </div>
 </div>
@@ -163,6 +167,7 @@
 
 <style>
   .fynav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .csv-btn { display: inline-flex; align-items: center; gap: 5px; }
   .hint { color: var(--ink-2); font-size: 13px; margin: -8px 0 14px; }
   .companynav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
   .cbtn { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 700; text-decoration: none; }

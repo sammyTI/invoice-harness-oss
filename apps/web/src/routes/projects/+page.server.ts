@@ -3,14 +3,20 @@ import { fail, redirect } from "@sveltejs/kit";
 import { createProject, getDB, listClients, listDivisions, listIssuers, listMembers, listProjects } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
+const PAGE_SIZE = 20;
+
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   const allowed = await allowedIssuerIds(db, locals.user);
   let projects = (await listProjects(db)).filter((p) => !p.issuer_id || canAccessIssuer(allowed, p.issuer_id));
 
-  // 検索・絞り込み（案件名/顧客名/担当者のキーワード＋状態）
+  // 検索・絞り込み（会社＝発行元・顧客・案件名/顧客名/担当者のキーワード＋状態）
+  const iss = url.searchParams.get("iss") ?? "";
+  const cli = url.searchParams.get("cli") ?? "";
   const q = (url.searchParams.get("q") ?? "").trim();
   const st = url.searchParams.get("st") ?? "";
+  if (iss && canAccessIssuer(allowed, iss)) projects = projects.filter((p) => p.issuer_id === iss);
+  if (cli) projects = projects.filter((p) => p.client_id === cli);
   if (q) {
     const needle = q.toLowerCase();
     projects = projects.filter(
@@ -22,11 +28,25 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   }
   if (st === "proposed" || st === "active" || st === "done") projects = projects.filter((p) => p.status === st);
 
+  // ページング（docs/[type] の実装を踏襲: 絞り込み後の件数から page/pageCount を確定）
+  const total = projects.length;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageCount, Math.max(1, Number(url.searchParams.get("page")) || 1));
+  const pageProjects = projects.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const clientsOptions = await listClients(db);
+
   return {
+    iss,
+    cli,
     q,
     st,
-    projects,
-    clients: await listClients(db),
+    page,
+    pageCount,
+    total,
+    projects: pageProjects,
+    clients: clientsOptions,
+    clientsOptions: clientsOptions.map((c) => ({ id: c.id, name: c.name })),
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     divisions: (await listDivisions(db)).filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id)),
     members: (await listMembers(db)).filter((m) => m.status === "active").map((m) => m.name),

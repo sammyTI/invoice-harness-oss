@@ -103,3 +103,34 @@ export function csvToTransactions(text: string, account: string): CsvParseResult
   }
   return { txns, detected: det };
 }
+
+// ---------- CSVエクスポート ----------
+// CSV応答ヘルパ。Excel対応のためUTF-8 BOM付き。値は必要時のみクォート。
+
+/** 1セルをCSV用にエスケープ。カンマ・改行・ダブルクォートを含む場合のみ全体をクォートする。 */
+function escapeCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  // 数値はそのまま（クォート不要）
+  if (typeof value === "number") return String(value);
+  const s = String(value);
+  // " を "" にエスケープし、カンマ・改行・" を含むならクォート
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** ヘッダ行＋データ行からCSVレスポンスを組み立てる。ファイル名はUTF-8でエンコードして添付する。 */
+export function csvResponse(
+  filename: string,
+  header: string[],
+  rows: (string | number | null | undefined)[][]
+): Response {
+  const lines = [header, ...rows].map((row) => row.map(escapeCell).join(","));
+  // Excelでの文字化け防止にBOMを先頭付与、行区切りはCRLF
+  const body = "﻿" + lines.join("\r\n");
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    },
+  });
+}

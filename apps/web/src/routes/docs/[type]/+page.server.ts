@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { error, fail } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { deleteDocument, DocumentLockedError, effectiveDivision, getDB, listDivisions, listDocuments, listProjects, markSent } from "$lib/server/db";
+import { deleteDocument, DocumentLockedError, effectiveDivision, getDB, listDivisions, listDocuments, listIssuers, listProjects, markSent } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, assertDocAccess, canAccessIssuer } from "$lib/server/access";
 
@@ -16,7 +16,8 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
   const loaded = await listDocuments(db, type, allowed);
   const today = new Date().toISOString().slice(0, 10);
 
-  // フィルター: キーワード（取引先名・番号・件名は無いので番号）＋部門＋プロジェクト＋発行日の期間
+  // フィルター: 会社（発行元）＋キーワード（取引先名・件名・番号）＋部門＋プロジェクト＋発行日の期間
+  const iss = url.searchParams.get("iss") ?? "";
   const q = (url.searchParams.get("q") ?? "").trim();
   const div = url.searchParams.get("div") ?? "";
   const prj = url.searchParams.get("prj") ?? "";
@@ -27,9 +28,12 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
     ? loaded.filter(
         (d) =>
           d.client_name.toLowerCase().includes(q.toLowerCase()) ||
-          d.number.toLowerCase().includes(q.toLowerCase())
+          d.number.toLowerCase().includes(q.toLowerCase()) ||
+          (d.subject?.toLowerCase().includes(q.toLowerCase()) ?? false)
       )
     : loaded;
+  // 会社（発行元）で絞り込み。閲覧可能な発行元のみ許可。
+  if (iss && canAccessIssuer(allowed, iss)) all = all.filter((d) => d.issuer_id === iss);
   if (div) all = all.filter((d) => effectiveDivision(d).id === div);
   if (prj) all = all.filter((d) => d.project_id === prj);
   if (from) all = all.filter((d) => d.issue_date >= from);
@@ -74,13 +78,18 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // フィルター用の選択肢（閲覧可能な範囲のみ）
-  const divisions = (await listDivisions(db)).filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id));
+  const issuers = (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id));
+  // 会社選択時は、その会社の部門＋全社共通（issuer_id なし）のみに絞る
+  const divisions = (await listDivisions(db))
+    .filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id))
+    .filter((d) => !iss || !d.issuer_id || d.issuer_id === iss);
   const projects = (await listProjects(db)).map((p) => ({ id: p.id, name: p.name, client_name: p.client_name }));
 
   return {
     type, label: DOCUMENT_LABELS[type], view, counts, today,
     documents: pageRows, total, page, pageCount, sort, dir,
-    q, div, prj, from, to,
+    iss, q, div, prj, from, to,
+    issuers: issuers.map((i) => ({ id: i.id, name: i.name })),
     divisions: divisions.map((d) => ({ id: d.id, name: d.name })),
     projects,
   };

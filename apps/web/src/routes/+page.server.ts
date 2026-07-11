@@ -1,6 +1,6 @@
-import type { PageServerLoad } from "./$types";
+import type { PageServerLoad, Actions } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, sumTargets } from "$lib/server/db";
+import { countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -142,8 +142,13 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   // 「はじめにやること」チェックリスト（owner のみ算出・表示）。
   // 追加クエリを最小化するため issuers / allDocs / hub.clients を再利用し、
   // メール連携とメンバー数だけを追加取得する。
+  // dismissed 済みのときはクエリをスキップして null を即返す。
   let checklist: { key: string; label: string; href: string; done: boolean; optional?: boolean }[] | null = null;
   if (locals.user?.role === "owner") {
+    const dismissed = await isChecklistDismissed(db, locals.user.id);
+    if (dismissed) {
+      // 非表示設定済み: 算出をスキップして null のまま
+    } else {
     const mail = await getMailConfig(db, platform?.env);
     const memberCount = await countActiveMembers(db);
     const items = [
@@ -156,6 +161,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     // 必須3つ＋任意2つが全て完了したらカードごと非表示にする。
     const allDone = items.every((i) => i.done);
     checklist = allDone ? null : items;
+    } // else (dismissed)
   }
 
   return {
@@ -184,4 +190,13 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     hasDivTargets,
     recent: docs.slice(0, 8),
   };
+};
+
+// チェックリストを非表示にする（owner のみ・永続化）
+export const actions: Actions = {
+  dismissChecklist: async ({ platform, locals }) => {
+    if (locals.user?.role !== "owner") return;
+    const db = getDB(platform);
+    await setChecklistDismissed(db, locals.user.id);
+  },
 };

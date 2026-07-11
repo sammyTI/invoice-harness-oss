@@ -1,5 +1,6 @@
 <script>
   import { formatYen, lifecycle } from "@invoice-harness/shared";
+  import { page } from "$app/stores";
   import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   $: [yy, mm] = data.month.split("-");
@@ -15,6 +16,10 @@
     <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.prev}${issQ}${basisQ}`}>← 前月</a>
     {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/monthly?${(issQ + basisQ).slice(1)}`}>今月</a>{/if}
     <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.next}${issQ}${basisQ}`}>翌月 →</a>
+    <a class="btn btn-quiet btn-sm csv-btn" href={`${$page.url.pathname}/export.csv${$page.url.search}`} title="表示中の月次をCSVで出力">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+      CSV
+    </a>
     <SettingsGear links={[
       { href: "/settings/targets", label: "売上目標" },
       { href: "/settings/divisions", label: "計上区分（部門）" },
@@ -142,6 +147,7 @@
 
 <style>
   .fynav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .csv-btn { display: inline-flex; align-items: center; gap: 5px; }
   .modeswitch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin: 0 0 16px; }
   .mode { padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none; }
   .mode:hover { color: var(--primary-d); }

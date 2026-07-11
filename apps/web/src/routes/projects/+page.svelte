@@ -17,6 +17,15 @@
   };
   const st = (s) => ST[s] ?? ST.active;
 
+  // フィルター状態をページャリンクに引き継ぐクエリ文字列（会社・顧客・検索・状態）
+  $: qs = [
+    data.iss ? `&iss=${data.iss}` : "",
+    data.cli ? `&cli=${data.cli}` : "",
+    data.q ? `&q=${encodeURIComponent(data.q)}` : "",
+    data.st ? `&st=${data.st}` : "",
+  ].join("");
+  $: pageHref = (p) => `/projects?page=${p}${qs}`;
+
   let dlg;
   const openCreate = () => dlg?.showModal();
   // 顧客ページの「＋プロジェクトを作成」から来たときは自動で開く
@@ -36,6 +45,16 @@
 <p class="hint">顧客ごとの案件に、請求書・見積書・支払（発注/支払通知）を紐づけて収支（粗利）を管理します。</p>
 
 <form class="searchbar" method="GET">
+  {#if data.issuers.length > 1}
+    <select class="input fsel" name="iss">
+      <option value="">全社</option>
+      {#each data.issuers as i}<option value={i.id} selected={i.id === data.iss}>{i.name}</option>{/each}
+    </select>
+  {/if}
+  <select class="input fsel" name="cli">
+    <option value="">全顧客</option>
+    {#each data.clientsOptions as c}<option value={c.id} selected={c.id === data.cli}>{c.name}</option>{/each}
+  </select>
   <input class="input fq" name="q" value={data.q} placeholder="案件名・顧客名・担当者で検索" />
   <select class="input fsel" name="st">
     <option value="">すべての状態</option>
@@ -44,15 +63,20 @@
     <option value="done" selected={data.st === "done"}>完了</option>
   </select>
   <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
-  {#if data.q || data.st}<a class="btn btn-quiet btn-sm" href="/projects">クリア</a>{/if}
+  {#if data.iss || data.cli || data.q || data.st}<a class="btn btn-quiet btn-sm" href="/projects">クリア</a>{/if}
+  <a class="btn btn-quiet btn-sm csv-btn" href={`${$page.url.pathname}/export.csv${$page.url.search}`} title="絞り込み結果をCSVで出力">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+    CSV
+  </a>
 </form>
 
 {#if data.projects.length === 0}
   <div class="empty">
-    {data.q || data.st ? "条件に一致するプロジェクトがありません。" : "プロジェクトがまだありません。"}
+    {data.iss || data.cli || data.q || data.st ? "条件に一致するプロジェクトがありません。" : "プロジェクトがまだありません。"}
     {#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button></div>{/if}
   </div>
 {:else}
+  <div class="listbar"><span class="muted num">{data.total}件 / {data.page}–{data.pageCount}ページ</span></div>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th>案件名</th><th>顧客</th><th>状態</th><th class="r">請求</th><th class="r">支払</th><th class="r">粗利</th></tr></thead>
@@ -73,6 +97,14 @@
       </tbody>
     </table>
   </div>
+
+  {#if data.pageCount > 1}
+    <div class="pager">
+      <a class="btn btn-quiet btn-sm" class:is-disabled={data.page <= 1} href={pageHref(data.page - 1)}>← 前</a>
+      <span class="muted num">{data.page} / {data.pageCount}</span>
+      <a class="btn btn-quiet btn-sm" class:is-disabled={data.page >= data.pageCount} href={pageHref(data.page + 1)}>次 →</a>
+    </div>
+  {/if}
 {/if}
 
 <dialog class="modal" bind:this={dlg}>
@@ -119,8 +151,12 @@
   .head-acts { display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--ink-2); font-size: 13px; margin-top: -8px; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 12px 0 14px; flex-wrap: wrap; }
+  .csv-btn { display: inline-flex; align-items: center; gap: 5px; }
   .searchbar .fq { max-width: 240px; }
   .searchbar .fsel { width: auto; font-size: 13px; }
+  .listbar { display: flex; justify-content: flex-start; padding: 0 2px 10px; }
+  .muted { color: var(--muted); }
+  .pager { display: flex; align-items: center; gap: 14px; justify-content: center; margin-top: 16px; }
   .pname { font-weight: 700; }
   .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .profit { font-weight: 700; white-space: nowrap; }

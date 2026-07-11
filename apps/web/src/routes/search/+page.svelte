@@ -7,6 +7,14 @@
 <p class="hint">電子帳簿保存法の検索要件（取引先・取引年月日・取引金額）に対応した検索です。</p>
 
 <form class="section searchform" method="GET">
+  {#if data.issuers.length > 1}
+    <div class="field"><span class="lab">会社（発行元）</span>
+      <select class="input" name="iss">
+        <option value="">全社</option>
+        {#each data.issuers as i}<option value={i.id} selected={i.id === data.iss}>{i.name}</option>{/each}
+      </select>
+    </div>
+  {/if}
   <div class="field"><span class="lab">取引先 / 番号 / 件名</span><input class="input" name="q" value={data.q} placeholder="株式会社サンプル 等" /></div>
   <div class="row">
     <div class="field"><span class="lab">取引年月日（から）</span><input class="input" type="date" name="from" value={data.dateFrom} /></div>

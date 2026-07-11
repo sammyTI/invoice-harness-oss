@@ -17,15 +17,16 @@
     { key: "unpaid", label: "入金待ち", n: data.counts.unpaid },
     { key: "overdue", label: "入金期日超過", n: data.counts.overdue },
   ];
-  // フィルター状態をリンク間で引き継ぐクエリ文字列（検索・部門・案件・期間）
+  // フィルター状態をリンク間で引き継ぐクエリ文字列（会社・検索・部門・案件・期間）
   $: qs = [
+    data.iss ? `&iss=${data.iss}` : "",
     data.q ? `&q=${encodeURIComponent(data.q)}` : "",
     data.div ? `&div=${data.div}` : "",
     data.prj ? `&prj=${data.prj}` : "",
     data.from ? `&from=${data.from}` : "",
     data.to ? `&to=${data.to}` : "",
   ].join("");
-  $: hasFilter = data.q || data.div || data.prj || data.from || data.to;
+  $: hasFilter = data.iss || data.q || data.div || data.prj || data.from || data.to;
   $: fhref = (k) => (k === "all" ? `/docs/${data.type}${qs ? `?${qs.slice(1)}` : ""}` : `/docs/${data.type}?view=${k}${qs}`);
   $: sortHref = (col) => {
     const dir = data.sort === col && data.dir === "asc" ? "desc" : "asc";
@@ -55,7 +56,13 @@
 
 <form class="searchbar" method="GET">
   <input type="hidden" name="view" value={data.view} />
-  <input class="input fq" name="q" value={data.q} placeholder="取引先名・番号で検索" />
+  {#if data.issuers.length > 1}
+    <select class="input fsel" name="iss">
+      <option value="">全社</option>
+      {#each data.issuers as i}<option value={i.id} selected={i.id === data.iss}>{i.name}</option>{/each}
+    </select>
+  {/if}
+  <input class="input fq" name="q" value={data.q} placeholder="取引先名・件名・番号で検索" />
   {#if data.divisions.length}
     <select class="input fsel" name="div">
       <option value="">全部門</option>
@@ -75,6 +82,10 @@
   </span>
   <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
   {#if hasFilter}<a class="btn btn-quiet btn-sm" href={`/docs/${data.type}`}>クリア</a>{/if}
+  <a class="btn btn-quiet btn-sm csv-btn" href={`${$page.url.pathname}/export.csv${$page.url.search}`} title="絞り込み結果をCSVで出力">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+    CSV
+  </a>
 </form>
 
 {#if form?.bulk}<p class="flash-ok">{form.bulk}</p>{/if}
@@ -152,6 +163,7 @@
 
 <style>
   .head-acts { display: flex; align-items: center; gap: 8px; }
+  .csv-btn { display: inline-flex; align-items: center; gap: 5px; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
   .searchbar .fq { max-width: 240px; }
   .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }

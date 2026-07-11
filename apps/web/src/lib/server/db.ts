@@ -922,6 +922,7 @@ export interface SearchFilters {
   dateTo?: string;
   amountMin?: number | null;
   amountMax?: number | null;
+  issuerId?: string; // 会社（発行元）で絞り込み。空=全社
 }
 
 export async function searchDocuments(db: D1Database, f: SearchFilters, allowed?: string[] | null): Promise<DocumentListRow[]> {
@@ -934,6 +935,11 @@ export async function searchDocuments(db: D1Database, f: SearchFilters, allowed?
       return `?${i++}`;
     });
     where.push(`d.issuer_id IN (${ph.join(",")})`);
+  }
+  if (f.issuerId) {
+    where.push(`d.issuer_id = ?${i}`);
+    binds.push(f.issuerId);
+    i++;
   }
   if (f.q) {
     where.push(`(c.name LIKE ?${i} OR d.number LIKE ?${i} OR d.subject LIKE ?${i})`);
@@ -1112,6 +1118,20 @@ export async function countActiveMembers(db: D1Database): Promise<number> {
     .prepare("SELECT COUNT(*) AS n FROM members WHERE status = 'active' AND password_hash IS NOT NULL")
     .first<{ n: number }>();
   return r?.n ?? 0;
+}
+
+/** チェックリストを非表示にする（永続・端末横断）。 */
+export async function setChecklistDismissed(db: D1Database, memberId: string): Promise<void> {
+  await db.prepare("UPDATE members SET checklist_dismissed = 1 WHERE id = ?1").bind(memberId).run();
+}
+
+/** チェックリストが非表示済みかを返す。 */
+export async function isChecklistDismissed(db: D1Database, memberId: string): Promise<boolean> {
+  const r = await db
+    .prepare("SELECT checklist_dismissed FROM members WHERE id = ?1")
+    .bind(memberId)
+    .first<{ checklist_dismissed: number }>();
+  return (r?.checklist_dismissed ?? 0) === 1;
 }
 
 export async function getMemberByEmail(db: D1Database, email: string): Promise<Member | null> {

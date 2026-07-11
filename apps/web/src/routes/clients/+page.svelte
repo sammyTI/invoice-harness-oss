@@ -43,6 +43,10 @@
   {/if}
   <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
   {#if data.q || data.cat}<a class="btn btn-quiet btn-sm" href="/clients">クリア</a>{/if}
+  <a class="btn btn-quiet btn-sm csv-btn" href={`${$page.url.pathname}/export.csv${$page.url.search}`} title="絞り込み結果をCSVで出力">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+    CSV
+  </a>
 </form>
 
 {#if data.clients.length === 0}
@@ -174,6 +178,7 @@
 <style>
   .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .csv-btn { display: inline-flex; align-items: center; gap: 5px; }
   .searchbar .fq { max-width: 240px; }
   .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }
   .mini { font-size: 13px; }

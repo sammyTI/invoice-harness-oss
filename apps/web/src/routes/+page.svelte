@@ -47,6 +47,11 @@
     <div class="gs-head">
       <h2>はじめにやること</h2>
       <a class="gs-wizard" href="/onboarding">ウィザードで設定 →</a>
+      <form method="POST" action="?/dismissChecklist" class="gs-dismiss-form">
+        <button type="submit" class="gs-dismiss" title="非表示にする（/onboarding からいつでも設定できます）" aria-label="チェックリストを非表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </form>
     </div>
     <ul class="gs-list">
       {#each data.checklist as c}
@@ -272,6 +277,10 @@
   .gs-head h2 { font-size: 15px; margin: 0; }
   .gs-wizard { font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
   .gs-wizard:hover { text-decoration: underline; }
+  .gs-dismiss-form { margin-left: auto; }
+  .gs-dismiss { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); cursor: pointer; padding: 0; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+  .gs-dismiss:hover { background: var(--surface); color: var(--ink); border-color: var(--ink-2); }
+  .gs-dismiss svg { width: 13px; height: 13px; }
   .gs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
   .gs-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
   .gs-item:first-child { border-top: none; }
