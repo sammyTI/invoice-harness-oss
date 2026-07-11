@@ -10,6 +10,7 @@ export const GET: RequestHandler = async ({ platform }) => {
     issuers: issuers.map((i) => ({
       id: i.id,
       name: i.name,
+      entity_type: i.entity_type ?? "corporate",
       registration_number: i.registration_number,
       person_name: i.person_name,
       address: i.address,
@@ -25,6 +26,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
   const db = getDB(platform);
   const b = (await request.json().catch(() => ({}))) as {
     name?: string;
+    entity_type?: string;
     registration_number?: string;
     person_name?: string;
     postal_code?: string;
@@ -39,6 +41,8 @@ export const POST: RequestHandler = async ({ platform, request }) => {
   const fiscalMonth = Number(b.fiscal_month);
   const id = await createIssuer(db, {
     name,
+    // corporate|individual 以外は無視して 'corporate' 扱い（db側でも正規化）
+    entity_type: b.entity_type === "individual" ? "individual" : "corporate",
     fiscal_month: Number.isInteger(fiscalMonth) && fiscalMonth >= 1 && fiscalMonth <= 12 ? fiscalMonth : null,
     registration_number: b.registration_number?.trim() || null,
     person_name: b.person_name?.trim() || null,

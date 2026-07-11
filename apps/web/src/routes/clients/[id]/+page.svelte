@@ -26,6 +26,7 @@
     {#if c.contact}<span class="kv"><span class="k">担当</span>{c.contact}</span>{/if}
     {#if c.email}<span class="kv"><span class="k">メール</span>{c.email}</span>{/if}
     {#if c.address}<span class="kv"><span class="k">住所</span>〒{c.postal_code} {c.address}</span>{/if}
+    <span class="kv"><span class="k">登録番号</span>{#if c.registration_number}{c.registration_number}{:else}<span class="unreg">未登録（免税事業者）</span>{/if}</span>
   </div>
 </div>
 
@@ -122,6 +123,7 @@
   .info { padding: 12px 16px; margin-bottom: 14px; }
   .irow { display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--ink-2); }
   .kv .k { color: var(--muted); font-size: 11px; margin-right: 5px; }
+  .unreg { color: var(--muted); }
   .catchip { display: inline-block; background: var(--primary-soft); color: var(--primary-d); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
   @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }

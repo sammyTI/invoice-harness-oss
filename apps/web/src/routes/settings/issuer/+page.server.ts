@@ -5,6 +5,7 @@ import { createIssuer, getDB, listIssuers, updateIssuer, type IssuerInput } from
 function parse(fd: FormData): IssuerInput {
   return {
     name: String(fd.get("name") ?? "").trim(),
+    entity_type: fd.get("entity_type") === "individual" ? "individual" : "corporate",
     registration_number: String(fd.get("registration_number") ?? "").trim() || null,
     person_name: String(fd.get("person_name") ?? "").trim() || null,
     postal_code: String(fd.get("postal_code") ?? "").trim() || null,

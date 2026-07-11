@@ -1,10 +1,21 @@
 <script>
   export let data;
   export let form;
+
+  // 事業形態が「個人事業主」に変わったら決算月を12（暦年）に自動セットする。
+  // 手動変更は妨げないため、以後の決算月操作は上書きしない。
+  function onEntityChange(e) {
+    const formEl = e.target.closest("form");
+    if (!formEl) return;
+    if (e.target.value === "individual") {
+      const fm = formEl.querySelector('select[name="fiscal_month"]');
+      if (fm) fm.value = "12";
+    }
+  }
 </script>
 
 <div class="page-head"><h1 class="page-title">自社情報</h1></div>
-<p class="hint">帳票に表示される発行元（自社名・登録番号・住所・<b>振込先</b>）を設定します。</p>
+<p class="hint">帳票に表示される発行元（事業者名・登録番号・住所・<b>振込先</b>）を設定します。</p>
 {#if form?.error}<p class="flash-err">{form.error}</p>{/if}
 {#if form?.ok}<p class="flash-ok">保存しました。</p>{/if}
 
@@ -13,9 +24,15 @@
     <div class="section-head"><h2>{iss.name}</h2></div>
     <input type="hidden" name="id" value={iss.id} />
     <div class="grid2">
-      <div class="field"><span class="lab">自社名</span><input class="input" name="name" value={iss.name} required /></div>
+      <div class="field"><span class="lab">事業形態</span>
+        <select class="input" name="entity_type" on:change={onEntityChange}>
+          <option value="corporate" selected={(iss.entity_type ?? "corporate") !== "individual"}>法人</option>
+          <option value="individual" selected={iss.entity_type === "individual"}>個人事業主・フリーランス</option>
+        </select>
+      </div>
+      <div class="field"><span class="lab">事業者名</span><input class="input" name="name" value={iss.name} required /><span class="sub">法人名、または屋号・氏名（例: 山田太郎 / デザイン事務所ヤマダ）</span></div>
       <div class="field"><span class="lab">発行者名（担当者名）</span><input class="input" name="person_name" value={iss.person_name ?? ""} placeholder="営業部 山田太郎" /></div>
-      <div class="field"><span class="lab">登録番号（インボイス）</span><input class="input" name="registration_number" value={iss.registration_number ?? ""} placeholder="T1234567890123" /></div>
+      <div class="field"><span class="lab">登録番号（インボイス）</span><input class="input" name="registration_number" value={iss.registration_number ?? ""} placeholder="T1234567890123" /><span class="sub">免税事業者の場合は空欄で構いません。</span></div>
       <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" value={iss.postal_code ?? ""} /></div>
       <div class="field"><span class="lab">TEL</span><input class="input" name="tel" value={iss.tel ?? ""} /></div>
       <div class="field"><span class="lab">メール</span><input class="input" name="email" value={iss.email ?? ""} /></div>
@@ -26,7 +43,11 @@
             <option value={i + 1} selected={iss.fiscal_month === i + 1}>{i + 1}月</option>
           {/each}
         </select>
-        <span class="sub">この会社の年度区切り。複数社あるとトップは暦年で集計し、会社を選ぶとその会社の年度で表示します。</span>
+        {#if iss.entity_type === "individual"}
+          <span class="sub">個人事業主は暦年（12月締め）です。</span>
+        {:else}
+          <span class="sub">この会社の年度区切り。複数社あるとトップは暦年で集計し、会社を選ぶとその会社の年度で表示します。</span>
+        {/if}
       </div>
     </div>
     <div class="field"><span class="lab">住所</span><textarea class="input" name="address" rows="2" placeholder="〒100-0001 東京都千代田区千代田1-1-1&#10;サンプルビル10F">{iss.address ?? ""}</textarea><span class="sub">長い住所は改行できます（市区町村・建物名で改行など）。</span></div>
@@ -39,9 +60,15 @@
   <summary>発行元を追加</summary>
   <form method="POST" action="?/create" class="addnew">
     <div class="grid2">
-      <div class="field"><span class="lab">自社名</span><input class="input" name="name" required /></div>
+      <div class="field"><span class="lab">事業形態</span>
+        <select class="input" name="entity_type" on:change={onEntityChange}>
+          <option value="corporate" selected>法人</option>
+          <option value="individual">個人事業主・フリーランス</option>
+        </select>
+      </div>
+      <div class="field"><span class="lab">事業者名</span><input class="input" name="name" required /><span class="sub">法人名、または屋号・氏名（例: 山田太郎 / デザイン事務所ヤマダ）</span></div>
       <div class="field"><span class="lab">発行者名（担当者名）</span><input class="input" name="person_name" placeholder="営業部 山田太郎" /></div>
-      <div class="field"><span class="lab">登録番号</span><input class="input" name="registration_number" placeholder="T1234567890123" /></div>
+      <div class="field"><span class="lab">登録番号</span><input class="input" name="registration_number" placeholder="T1234567890123" /><span class="sub">免税事業者の場合は空欄で構いません。</span></div>
       <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" /></div>
       <div class="field"><span class="lab">TEL</span><input class="input" name="tel" /></div>
       <div class="field"><span class="lab">メール</span><input class="input" name="email" /></div>
@@ -52,6 +79,7 @@
             <option value={i + 1}>{i + 1}月</option>
           {/each}
         </select>
+        <span class="sub">個人事業主は暦年（12月締め）です。</span>
       </div>
     </div>
     <div class="field"><span class="lab">住所</span><textarea class="input" name="address" rows="2" placeholder="〒100-0001 東京都千代田区千代田1-1-1&#10;サンプルビル10F"></textarea></div>

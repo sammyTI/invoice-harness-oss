@@ -537,6 +537,29 @@ export async function deletePayment(db: D1Database, paymentId: string, actor = "
   await appendAudit(db, { actor, action: "pay", document_id: row.document_id, summary: `入金 ${row.amount} を取消` });
 }
 
+// ---------- 税率マスタ（適用開始日つき） ----------
+// 型 TaxRate と純関数 ratesForDate は $lib/tax.ts に置き、サーバ/クライアント両用にする。
+
+export type { TaxRate } from "$lib/tax";
+export { ratesForDate } from "$lib/tax";
+import type { TaxRate } from "$lib/tax";
+
+export async function listTaxRates(db: D1Database): Promise<TaxRate[]> {
+  const { results } = await db.prepare("SELECT id,label,rate,valid_from,sort FROM tax_rates ORDER BY label, valid_from").all<TaxRate>();
+  return results ?? [];
+}
+
+export async function createTaxRate(db: D1Database, f: { label: string; rate: number; valid_from: string; sort?: number }): Promise<void> {
+  await db
+    .prepare("INSERT INTO tax_rates (id,label,rate,valid_from,sort) VALUES (?1,?2,?3,?4,?5)")
+    .bind(crypto.randomUUID(), f.label, Math.round(f.rate), f.valid_from, f.sort ?? 0)
+    .run();
+}
+
+export async function deleteTaxRate(db: D1Database, id: string): Promise<void> {
+  await db.prepare("DELETE FROM tax_rates WHERE id = ?1").bind(id).run();
+}
+
 // ---------- 品目マスタ ----------
 
 export interface Item {
@@ -924,6 +947,7 @@ export async function listIssuers(db: D1Database): Promise<Issuer[]> {
 
 export interface IssuerInput {
   name: string;
+  entity_type?: "corporate" | "individual"; // 事業形態。未指定は 'corporate'
   registration_number: string | null;
   person_name: string | null;
   postal_code: string | null;
@@ -934,12 +958,17 @@ export interface IssuerInput {
   fiscal_month?: number | null;
 }
 
+// 事業形態を corporate | individual に正規化（不正値は corporate）。
+function normEntityType(v: unknown): "corporate" | "individual" {
+  return v === "individual" ? "individual" : "corporate";
+}
+
 export async function updateIssuer(db: D1Database, id: string, f: IssuerInput): Promise<void> {
   await db
     .prepare(
-      `UPDATE issuers SET name=?2, registration_number=?3, postal_code=?4, address=?5, tel=?6, email=?7, bank_info=?8, person_name=?9, fiscal_month=?10 WHERE id=?1`
+      `UPDATE issuers SET name=?2, registration_number=?3, postal_code=?4, address=?5, tel=?6, email=?7, bank_info=?8, person_name=?9, fiscal_month=?10, entity_type=?11 WHERE id=?1`
     )
-    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null)
+    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null, normEntityType(f.entity_type))
     .run();
 }
 
@@ -947,10 +976,10 @@ export async function createIssuer(db: D1Database, f: IssuerInput): Promise<stri
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO issuers (id,name,registration_number,postal_code,address,tel,email,bank_info,person_name,fiscal_month)
-       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+      `INSERT INTO issuers (id,name,registration_number,postal_code,address,tel,email,bank_info,person_name,fiscal_month,entity_type)
+       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`
     )
-    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null)
+    .bind(id, f.name, f.registration_number, f.postal_code, f.address, f.tel, f.email, f.bank_info, f.person_name, f.fiscal_month ?? null, normEntityType(f.entity_type))
     .run();
   return id;
 }
@@ -976,12 +1005,12 @@ export async function getClient(db: D1Database, id: string): Promise<Client | nu
 
 export async function createClient(
   db: D1Database,
-  f: { name: string; honorific?: string; contact?: string | null; postal_code?: string | null; address?: string | null; email?: string | null }
+  f: { name: string; honorific?: string; contact?: string | null; postal_code?: string | null; address?: string | null; email?: string | null; registration_number?: string | null }
 ): Promise<string> {
   const id = crypto.randomUUID();
   await db
-    .prepare("INSERT INTO clients (id,name,honorific,contact,postal_code,address,email) VALUES (?1,?2,?3,?4,?5,?6,?7)")
-    .bind(id, f.name, f.honorific || "御中", f.contact ?? null, f.postal_code ?? null, f.address ?? null, f.email ?? null)
+    .prepare("INSERT INTO clients (id,name,honorific,contact,postal_code,address,email,registration_number) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)")
+    .bind(id, f.name, f.honorific || "御中", f.contact ?? null, f.postal_code ?? null, f.address ?? null, f.email ?? null, f.registration_number ?? null)
     .run();
   return id;
 }
@@ -993,12 +1022,13 @@ export interface ClientInput {
   postal_code: string | null;
   address: string | null;
   email: string | null;
+  registration_number: string | null;
 }
 
 export async function updateClient(db: D1Database, id: string, c: ClientInput): Promise<void> {
   await db
-    .prepare("UPDATE clients SET name=?2, honorific=?3, contact=?4, postal_code=?5, address=?6, email=?7 WHERE id=?1")
-    .bind(id, c.name, c.honorific, c.contact, c.postal_code, c.address, c.email)
+    .prepare("UPDATE clients SET name=?2, honorific=?3, contact=?4, postal_code=?5, address=?6, email=?7, registration_number=?8 WHERE id=?1")
+    .bind(id, c.name, c.honorific, c.contact, c.postal_code, c.address, c.email, c.registration_number)
     .run();
 }
 

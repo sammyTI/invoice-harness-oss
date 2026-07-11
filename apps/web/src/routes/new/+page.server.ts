@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, createProject, getDB, getDefaultNoteBody, getDocDefaultNotes, getProject, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates, listProjects } from "$lib/server/db";
+import { createDocument, createProject, getDB, getDefaultNoteBody, getDocDefaultNotes, getProject, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates, listProjects, listTaxRates } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     clients: await listClients(db),
     items: await listItems(db),
+    taxRates: await listTaxRates(db),
     // 全社共通(issuer_id=null)＋閲覧可能な会社の部門のみ（他社の部門名をクライアントに渡さない）
     divisions: (await listDivisions(db)).filter((d) => !d.issuer_id || canAccessIssuer(allowed, d.issuer_id)),
     // 種別ごとの既定備考があれば優先、なければ「既定」備考テンプレートを初期表示

@@ -15,8 +15,11 @@ export const PUT: RequestHandler = async ({ platform, params, request }) => {
     const v = Number(b.fiscal_month);
     return Number.isInteger(v) && v >= 1 && v <= 12 ? v : null;
   })();
+  // corporate|individual 以外は無視して現状維持
+  const entityType = b.entity_type === "corporate" || b.entity_type === "individual" ? b.entity_type : (cur.entity_type ?? "corporate");
   await updateIssuer(db, params.id, {
     name: (pick("name", cur.name) as string) || cur.name,
+    entity_type: entityType,
     registration_number: pick("registration_number", cur.registration_number),
     person_name: pick("person_name", cur.person_name),
     postal_code: pick("postal_code", cur.postal_code),

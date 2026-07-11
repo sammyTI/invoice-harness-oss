@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import SettingsGear from "$lib/SettingsGear.svelte";
+  import { ratesForDate } from "$lib/tax";
   export let data;
   export let form;
 
@@ -92,6 +93,21 @@
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  // 発行日。税率の選択肢は発行日に応じて ratesForDate で切り替える。
+  let issueDate = today;
+  // 発行日に有効な税率（label順）。先頭が既定（標準系列）。
+  $: taxOptions = ratesForDate(data.taxRates ?? [], issueDate);
+  // 発行日を変えて選択肢が変わったとき、選択肢に無い率だけ既定（先頭）に寄せる。
+  // 既存行が有効な率を選んでいればそのまま維持する。
+  $: if (taxOptions.length) {
+    const valid = new Set(taxOptions.map((o) => o.rate));
+    const def = taxOptions[0].rate;
+    let changed = false;
+    for (const l of lines) {
+      if (!valid.has(l.rate)) { l.rate = def; changed = true; }
+    }
+    if (changed) lines = lines;
+  }
   let notes = data.defaultNotes ?? "";
   let insertSel = "";
   function insertNote() {
@@ -156,7 +172,7 @@
           {/if}
         {/if}
       </div>
-      <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" value={today} required /></div>
+      <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" bind:value={issueDate} required /></div>
       <div class="field"><span class="lab">支払期限</span><input class="input" type="date" name="due_date" /></div>
       {#if divs.length}
         <div class="field"><span class="lab">計上区分（部門）</span>
@@ -202,7 +218,9 @@
             <input type="hidden" name="line_price" value={line.price} />
           </label>
           <label class="f rate"><span class="flab">税率</span>
-            <select class="input" name="line_rate" bind:value={line.rate}><option value={10}>10%</option><option value={8}>8%</option></select>
+            <select class="input" name="line_rate" bind:value={line.rate}>
+              {#each taxOptions as o}<option value={o.rate}>{o.label} {o.rate}%</option>{/each}
+            </select>
           </label>
           <button type="button" class="del" on:click={() => removeLine(i)} aria-label="行を削除">×</button>
         </div>

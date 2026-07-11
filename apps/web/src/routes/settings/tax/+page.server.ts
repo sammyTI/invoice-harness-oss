@@ -1,10 +1,11 @@
 import type { Actions, PageServerLoad } from "./$types";
 import type { Settings } from "@invoice-harness/shared";
-import { getDB, getSettings, updateSettings } from "$lib/server/db";
+import { fail } from "@sveltejs/kit";
+import { createTaxRate, deleteTaxRate, getDB, getSettings, listTaxRates, updateSettings } from "$lib/server/db";
 
 export const load: PageServerLoad = async ({ platform }) => {
   const db = getDB(platform);
-  return { settings: await getSettings(db) };
+  return { settings: await getSettings(db), taxRates: await listTaxRates(db) };
 };
 
 export const actions: Actions = {
@@ -26,5 +27,27 @@ export const actions: Actions = {
     };
     await updateSettings(db, next);
     return { ok: true };
+  },
+
+  // 税率マスタに1行追加（label必須・rate 0-100・valid_from必須）。
+  addTaxRate: async ({ request, platform }) => {
+    const db = getDB(platform);
+    const fd = await request.formData();
+    const label = String(fd.get("label") ?? "").trim();
+    const rate = Number(fd.get("rate"));
+    const valid_from = String(fd.get("valid_from") ?? "").trim();
+    if (!label) return fail(400, { taxError: "ラベルを入力してください。" });
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return fail(400, { taxError: "税率は0〜100の数値で入力してください。" });
+    if (!valid_from) return fail(400, { taxError: "適用開始日を入力してください。" });
+    await createTaxRate(db, { label, rate, valid_from, sort: Number(fd.get("sort")) || 0 });
+    return { taxOk: true };
+  },
+
+  deleteTaxRate: async ({ request, platform }) => {
+    const db = getDB(platform);
+    const fd = await request.formData();
+    const id = String(fd.get("id") ?? "");
+    if (id) await deleteTaxRate(db, id);
+    return { taxOk: true };
   },
 };

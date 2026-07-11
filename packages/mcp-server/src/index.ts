@@ -68,6 +68,7 @@ server.tool(
   "発行元（自社）を新規登録。会社名は必須。登録番号(T+13桁)・代表者名・住所・振込先などは任意。複数社運用ではこれで会社を追加する。",
   {
     name: z.string().describe("会社名（必須）"),
+    entity_type: z.enum(["corporate", "individual"]).optional().describe("事業形態。individual=個人事業主（決算は暦年）"),
     registration_number: z.string().optional().describe("適格請求書発行事業者 登録番号 T+13桁"),
     person_name: z.string().optional().describe("代表者名・担当者名"),
     postal_code: z.string().optional(),
@@ -86,6 +87,7 @@ server.tool(
   {
     id: z.string(),
     name: z.string().optional(),
+    entity_type: z.enum(["corporate", "individual"]).optional().describe("事業形態。individual=個人事業主（決算は暦年）"),
     registration_number: z.string().optional(),
     person_name: z.string().optional(),
     postal_code: z.string().optional(),
@@ -110,6 +112,24 @@ server.tool(
   "品目マスタの一覧を取得。",
   {},
   async () => ok(await api(`/api/items`))
+);
+
+server.tool(
+  "list_tax_rates",
+  "税率マスタ（適用開始日つき）の一覧を取得。消費税率の変更に備える時限マスタで、発行日に応じて作成画面の税率が切り替わる。",
+  {},
+  async () => ok(await api(`/api/tax-rates`))
+);
+
+server.tool(
+  "add_tax_rate",
+  "税率マスタに1行追加。消費税率の変更に備える時限マスタ。発行日に応じて作成画面の税率が切り替わる（例: 標準 12% を 2027-04-01 から）。確定済みの過去帳票には影響しない。",
+  {
+    label: z.string().describe("系列ラベル（標準 / 軽減 など）"),
+    rate: z.number().describe("税率パーセント 0-100（10, 8, 12 等）"),
+    valid_from: z.string().describe("適用開始日 YYYY-MM-DD（この日から有効）"),
+  },
+  async (body) => ok(await api(`/api/tax-rates`, { method: "POST", body: JSON.stringify(body) }))
 );
 
 server.tool(
@@ -146,6 +166,7 @@ server.tool(
     postal_code: z.string().optional(),
     address: z.string().optional(),
     email: z.string().optional(),
+    registration_number: z.string().optional().describe("適格請求書発行事業者 登録番号 T+13桁。免税事業者は省略"),
     category_names: z.array(z.string()).optional().describe("顧客区分（VIP/代理店 等。複数可）"),
   },
   async (body) => ok(await api(`/api/clients`, { method: "POST", body: JSON.stringify(body) }))
@@ -173,7 +194,7 @@ server.tool(
 server.tool(
   "update_client",
   "取引先を更新（id は list_clients で取得・指定フィールドだけ上書き）。",
-  { id: z.string(), name: z.string().optional(), honorific: z.string().optional(), contact: z.string().optional(), postal_code: z.string().optional(), address: z.string().optional(), email: z.string().optional() },
+  { id: z.string(), name: z.string().optional(), honorific: z.string().optional(), contact: z.string().optional(), postal_code: z.string().optional(), address: z.string().optional(), email: z.string().optional(), registration_number: z.string().optional().describe("適格請求書発行事業者 登録番号 T+13桁。免税事業者は省略") },
   async ({ id, ...body }) => ok(await api(`/api/clients/${id}`, { method: "PUT", body: JSON.stringify(body) }))
 );
 

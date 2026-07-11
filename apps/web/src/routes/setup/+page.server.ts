@@ -23,7 +23,8 @@ export const actions: Actions = {
     const { hash, salt } = await hashPassword(password);
     const id = await createOwner(db, name, email, hash, salt);
     const token = await createSession(db, id);
-    cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
+    // maxAge 30日は DB 側 sessions.expires_at（createSession で 30日）と一致させる
+    cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
     throw redirect(303, "/");
   },
 };

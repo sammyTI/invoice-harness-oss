@@ -6,6 +6,19 @@ function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+// 全レスポンス共通のセキュリティヘッダを付与して返す。
+// 静的アセット(_app/等)への付与は無害なので全経路を一本化して通す。
+// CSP は今回見送り: SvelteKit のインラインハイドレーション（<script>）と
+// 干渉して画面が壊れるリスクがあるため、別途 nonce 対応が済むまで保留する。
+async function resolveWithSecurityHeaders(event: Parameters<Handle>[0]["event"], resolve: Parameters<Handle>[0]["resolve"]): Promise<Response> {
+  const res = await resolve(event);
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  return res;
+}
+
 const PUBLIC = ["/login", "/setup", "/accept", "/logout"];
 // /transactions（銀行明細取込・消込）は会社タグの無い生明細を扱うため owner 専用
 const OWNER_ONLY = ["/members", "/settings", "/transactions"];
@@ -18,9 +31,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // 静的・内部アセットは素通り
   if (path.startsWith("/_app/") || path.startsWith("/assets/") || path === "/favicon.ico") {
-    return resolve(event);
+    return resolveWithSecurityHeaders(event, resolve);
   }
-  if (!db) return resolve(event);
+  if (!db) return resolveWithSecurityHeaders(event, resolve);
 
   // API（MCP/外部AI）: Bearer トークン認証
   if (path.startsWith("/api/")) {
@@ -29,7 +42,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     const ok = m ? await verifyApiToken(db, m[1]) : false;
     if (!ok) return json({ error: "unauthorized" }, 401);
     event.locals.apiActor = "api";
-    return resolve(event);
+    return resolveWithSecurityHeaders(event, resolve);
   }
 
   // セッション復元
@@ -46,7 +59,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const active = await countActiveMembers(db);
   if (active === 0) {
     if (path !== "/setup") throw redirect(303, "/setup");
-    return resolve(event);
+    return resolveWithSecurityHeaders(event, resolve);
   }
 
   // 未ログインは /login へ
@@ -90,5 +103,5 @@ export const handle: Handle = async ({ event, resolve }) => {
     throw redirect(303, "/");
   }
 
-  return resolve(event);
+  return resolveWithSecurityHeaders(event, resolve);
 };

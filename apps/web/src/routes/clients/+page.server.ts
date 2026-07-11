@@ -1,5 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
+import { isValidRegistrationNumber } from "@invoice-harness/shared";
 import {
   clientCategoryNameMap,
   createClientCategory,
@@ -22,6 +23,7 @@ function parse(fd: FormData): ClientInput {
     postal_code: String(fd.get("postal_code") ?? "").trim() || null,
     address: String(fd.get("address") ?? "").trim() || null,
     email: String(fd.get("email") ?? "").trim() || null,
+    registration_number: String(fd.get("registration_number") ?? "").trim() || null,
   };
 }
 
@@ -75,13 +77,15 @@ export const actions: Actions = {
     const fd = await request.formData();
     const c = parse(fd);
     if (!c.name) return fail(400, { error: "取引先名は必須です。" });
+    if (c.registration_number && !isValidRegistrationNumber(c.registration_number))
+      return fail(400, { error: "登録番号はT+13桁の形式で入力してください" });
     const id = crypto.randomUUID();
     await db
       .prepare(
-        `INSERT INTO clients (id, name, honorific, contact, postal_code, address, email)
-         VALUES (?1,?2,?3,?4,?5,?6,?7)`
+        `INSERT INTO clients (id, name, honorific, contact, postal_code, address, email, registration_number)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)`
       )
-      .bind(id, c.name, c.honorific, c.contact, c.postal_code, c.address, c.email)
+      .bind(id, c.name, c.honorific, c.contact, c.postal_code, c.address, c.email, c.registration_number)
       .run();
     await setClientCategories(db, id, catIds(fd));
     return { ok: true };
@@ -92,6 +96,8 @@ export const actions: Actions = {
     const id = String(fd.get("id") ?? "");
     const c = parse(fd);
     if (!id || !c.name) return fail(400, { error: "取引先名は必須です。" });
+    if (c.registration_number && !isValidRegistrationNumber(c.registration_number))
+      return fail(400, { error: "登録番号はT+13桁の形式で入力してください" });
     await updateClient(db, id, c);
     await setClientCategories(db, id, catIds(fd));
     throw redirect(303, "/clients");

@@ -79,6 +79,7 @@ export const DOCUMENT_FLOW: Record<DocumentType, DocumentType[]> = {
 export interface Issuer {
   id: string;
   name: string;
+  entity_type?: "corporate" | "individual"; // 事業形態（法人 / 個人事業主）。既定は corporate
   registration_number: string | null; // 適格請求書発行事業者 登録番号 (T + 13桁)
   person_name: string | null; // 発行者名（担当者名）
   postal_code: string | null;
@@ -99,6 +100,7 @@ export interface Client {
   postal_code: string | null;
   address: string | null;
   email: string | null;
+  registration_number?: string | null; // 適格請求書発行事業者 登録番号 (T + 13桁)。空=未登録（免税事業者等）
 }
 
 export interface DocumentLine {

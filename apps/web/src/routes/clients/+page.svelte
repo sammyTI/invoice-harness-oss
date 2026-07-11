@@ -60,7 +60,9 @@
           <tr>
             <td><a class="cnamelink" href={`/clients/${c.id}`}><b>{c.name}</b></a> {c.honorific}</td>
             <td>
-              {#each (data.catMap[c.id] ?? []) as cat}<span class="catchip">{cat}</span>{:else}<span class="muted">—</span>{/each}
+              {#if c.registration_number}<span class="chip chip-paid" title={c.registration_number}>適格</span>{/if}
+              {#each (data.catMap[c.id] ?? []) as cat}<span class="catchip">{cat}</span>{/each}
+              {#if !c.registration_number && !(data.catMap[c.id] ?? []).length}<span class="muted">—</span>{/if}
             </td>
             <td>{c.contact ?? "—"}</td>
             <td>{c.postal_code ? `〒${c.postal_code} ` : ""}{c.address ?? "—"}</td>
@@ -97,6 +99,11 @@
     <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" placeholder="100-0001" /></div>
     <div class="field"><span class="lab">住所</span><input class="input" name="address" /></div>
     <div class="field"><span class="lab">メール</span><input class="input" name="email" type="email" /></div>
+    <div class="field">
+      <span class="lab">インボイス登録番号</span>
+      <input class="input" name="registration_number" placeholder="T1234567890123" />
+      <span class="hint">未登録（免税事業者・個人など）の場合は空欄。支払先が未登録の場合、仕入税額控除の経過措置対象になります。</span>
+    </div>
     <button type="submit" class="btn btn-primary" style="width:100%">追加する</button>
   </form>
 </dialog>
@@ -128,6 +135,11 @@
       <div class="field"><span class="lab">郵便番号</span><input class="input" name="postal_code" value={editing.postal_code ?? ""} /></div>
       <div class="field"><span class="lab">住所</span><input class="input" name="address" value={editing.address ?? ""} /></div>
       <div class="field"><span class="lab">メール</span><input class="input" name="email" type="email" value={editing.email ?? ""} /></div>
+      <div class="field">
+        <span class="lab">インボイス登録番号</span>
+        <input class="input" name="registration_number" placeholder="T1234567890123" value={editing.registration_number ?? ""} />
+        <span class="hint">未登録（免税事業者・個人など）の場合は空欄。支払先が未登録の場合、仕入税額控除の経過措置対象になります。</span>
+      </div>
       <button type="submit" class="btn btn-primary" style="width:100%">更新する</button>
     </form>
   </dialog>
@@ -166,6 +178,7 @@
   .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }
   .mini { font-size: 13px; }
   .muted { color: var(--muted); }
+  .hint { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
   .catchip { display: inline-block; background: var(--primary-soft); color: var(--primary-d); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin: 0 4px 4px 0; }
   .catpick { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; max-height: 160px; overflow-y: auto; }
   .catopt { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }

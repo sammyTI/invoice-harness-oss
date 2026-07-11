@@ -94,3 +94,36 @@ export async function deleteSession(db: D1Database, token: string): Promise<void
 }
 
 export const SESSION_COOKIE = "ih_session";
+
+// --- ログイン試行制限（総当たり対策） ---
+// email ベースで直近10分の失敗回数を数える。ip はログ・監査用に併記するだけ。
+
+const ATTEMPT_WINDOW_MIN = 10; // 判定に使う時間窓（分）
+const ATTEMPT_LIMIT = 5; // この回数以上の失敗でロック
+
+/** 直近10分の失敗が5回以上なら true。 */
+export async function tooManyAttempts(db: D1Database, email: string, _ip: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM login_attempts
+       WHERE email = ?1 AND attempted_at >= datetime('now', ?2)`
+    )
+    .bind(email, `-${ATTEMPT_WINDOW_MIN} minutes`)
+    .first<{ n: number }>();
+  return (row?.n ?? 0) >= ATTEMPT_LIMIT;
+}
+
+/** ログイン失敗を1件記録する。ついでに1日より古い行を掃除する。 */
+export async function recordLoginFailure(db: D1Database, email: string, ip: string): Promise<void> {
+  await db
+    .prepare("INSERT INTO login_attempts (email, ip, attempted_at) VALUES (?1, ?2, datetime('now'))")
+    .bind(email, ip)
+    .run();
+  // 古い記録は不要なので削除（テーブルの肥大化防止）
+  await db.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now','-1 day')").run();
+}
+
+/** ログイン成功時に、その email の失敗記録をすべて消す。 */
+export async function clearLoginFailures(db: D1Database, email: string): Promise<void> {
+  await db.prepare("DELETE FROM login_attempts WHERE email = ?1").bind(email).run();
+}
