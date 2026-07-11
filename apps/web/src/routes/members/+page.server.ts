@@ -11,12 +11,13 @@ function normalizeRole(role: string): string {
 }
 
 function credMail(name: string, email: string, password: string, loginUrl: string) {
-  const subject = "【Invoice Harness】アカウント発行のお知らせ";
+  const subject = "【Invoice Harness】ログイン情報のご案内";
   const html = `<div style="font-family:sans-serif;line-height:1.7;color:#1b2330">
     <p>${name} 様</p>
-    <p>Invoice Harness のアカウントを発行しました。下記でログインし、初回にパスワードを変更してください。</p>
+    <p>Invoice Harness のログイン情報をご案内します。下記からログインしてください。</p>
     <p>ログインURL：<a href="${loginUrl}">${loginUrl}</a><br>
-    メール：${email}<br>初期パスワード：<b>${password}</b></p>
+    メールアドレス：${email}<br>初期パスワード：<b>${password}</b></p>
+    <p>初回ログイン後にパスワードの変更をお願いします。</p>
   </div>`;
   return { subject, html };
 }
@@ -42,6 +43,7 @@ export const actions: Actions = {
     const name = String(fd.get("name") ?? "").trim();
     const email = String(fd.get("email") ?? "").trim();
     const role = normalizeRole(String(fd.get("role") ?? "member"));
+    const sendMail = String(fd.get("send_mail") ?? "") === "on";
     if (!name || !email) return fail(400, { error: "名前とメールは必須です。" });
     if (await getMemberByEmail(db, email)) return fail(400, { error: "そのメールは既に登録されています。" });
 
@@ -50,16 +52,19 @@ export const actions: Actions = {
     await createMemberWithPassword(db, name, email, role, hash, salt);
 
     const loginUrl = `${url.origin}/login`;
-    // メール連携済みなら送信。未連携でも資格情報を画面表示してコピペできる
+    // メール連携済み かつ 送信チェックONのときだけ送信。それ以外は資格情報を画面表示してコピペで共有
     let emailed = false;
+    let mailError: string | undefined;
     const mailCfg = await getMailConfig(db, platform?.env);
-    if (mailCfg.RESEND_API_KEY) {
+    if (mailCfg.RESEND_API_KEY && sendMail) {
       const mail = credMail(name, email, tempPassword, loginUrl);
       const res = await sendEmail(mailCfg, { to: email, subject: mail.subject, html: mail.html });
       emailed = res.ok;
+      // 送信失敗しても招待自体は成功扱い。失敗理由は画面へ返し、初期パスワードは必ず表示する
+      if (!res.ok) mailError = res.reason;
       await logEmail(db, { recipient: email, subject: mail.subject, kind: "invite", ok: res.ok, detail: res.reason });
     }
-    return { ok: true, emailed, cred: { name, email, password: tempPassword, loginUrl } };
+    return { ok: true, emailed, mailError, cred: { name, email, password: tempPassword, loginUrl } };
   },
 
   update: async ({ request, platform }) => {

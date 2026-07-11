@@ -19,6 +19,12 @@
   {#if form?.mailError}
     <div class="flash-err">{form.mailError}</div>
   {/if}
+  {#if form?.mailTest === "ok"}
+    <div class="flash-ok">テストメールを {form.to} に送信しました。受信箱を確認してください（届かない場合は迷惑メールも）</div>
+  {/if}
+  {#if form?.mailTestError}
+    <div class="flash-err">送信失敗: {form.mailTestError}</div>
+  {/if}
 
   {#if data.mail.configured}
     <p class="desc">
@@ -31,6 +37,14 @@
         <button class="del" type="submit">解除</button>
       </form>
     {/if}
+
+    <div class="test-mail">
+      <span class="lab">テスト送信</span>
+      <form method="POST" action="?/testMail" class="test-form">
+        <input class="input" type="email" name="to" value={data.myEmail} placeholder="test@example.com" autocomplete="off" />
+        <button class="btn btn-quiet btn-sm" type="submit">テストメールを送る</button>
+      </form>
+    </div>
   {:else}
     <p class="desc">メール送付は<b>任意</b>です。未連携でも帳票の作成・PDF・招待リンク発行は使えます。請求書のメール自動送付・催促メールを使う場合のみ、無料の <a href="https://resend.com" target="_blank" rel="noopener">Resend</a>（3,000通/月）を連携してください。</p>
   {/if}
@@ -133,6 +147,10 @@
   .inline-form { display: inline-block; margin: 4px 0 8px; }
   .mail-form { display: grid; gap: 12px; max-width: 480px; margin: 12px 0 4px; }
   .fieldhint { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+  .test-mail { margin: 12px 0 4px; }
+  .test-mail .lab { display: block; margin-bottom: 6px; }
+  .test-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 480px; }
+  .test-form .input { flex: 1 1 220px; }
   .flash-err { background: var(--red-soft); color: var(--red); border: 1px solid #f0c4c4; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin: 8px 0; }
   .howto { padding: 18px; margin-top: 16px; }
   .howto h3 { font-size: 14px; margin: 0 0 8px; }

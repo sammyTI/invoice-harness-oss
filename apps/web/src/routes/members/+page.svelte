@@ -50,8 +50,11 @@
   <div class="cred">
     <div class="cred-h">
       <b>ログイン情報を発行しました</b>
-      {#if form.emailed}<span class="chip chip-paid">メール送信済み</span>{:else}<span class="chip chip-sent">本人へ手動で共有してください</span>{/if}
+      {#if form.emailed}<span class="chip chip-paid">メール送信済み</span>
+      {:else if form.mailError}<span class="chip chip-canceled">メール送信失敗: {form.mailError}</span>
+      {:else}<span class="chip chip-sent">本人へ手動で共有してください</span>{/if}
     </div>
+    {#if form.mailError}<p class="cred-note">下記を手動で共有してください。</p>{/if}
     <pre class="cred-box">{credText(form.cred)}</pre>
     <button class="btn btn-primary btn-sm" on:click={() => copy(form.cred)}>{copied ? "コピーしました ✓" : "コピー"}</button>
   </div>
@@ -194,6 +197,11 @@
       </div>
     </div>
     <p class="rolehint">税理士に入出金の消込や修正まで任せる場合は member を選んでください。viewer は入力が必要になったら後から変更できます。</p>
+    {#if data.mailEnabled}
+      <label class="sendmail"><input type="checkbox" name="send_mail" checked /><span>招待メールを本人に送る（ログイン情報を記載）</span></label>
+    {:else}
+      <p class="sendmail-muted">メール未連携のため、発行されるログイン情報をコピーして本人に共有してください。（設定 ▸ API/連携 で連携できます）</p>
+    {/if}
     <button class="btn btn-primary" type="submit" style="width:100%">初期パスワードを発行</button>
   </form>
 </dialog>
@@ -230,6 +238,11 @@
   .rc-title { font-weight: 700; font-size: 14px; }
   .rc-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
   .rolehint { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 4px 0 4px; }
+  /* 招待メール送信チェック */
+  .sendmail { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer; margin: 2px 0 6px; }
+  .sendmail input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; flex: none; }
+  .sendmail-muted { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 2px 0 6px; }
+  .cred-note { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
 
   .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
   .rowacts { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
