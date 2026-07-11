@@ -66,6 +66,17 @@ export async function createSession(db: D1Database, memberId: string): Promise<s
   return id;
 }
 
+/**
+ * メンバーの全セッションを破棄し、現在のブラウザ用に新しいセッションを1件だけ発行する。
+ * パスワード変更後に他端末のセッションを無効化する用途（旧セッションの乗っ取り対策）。
+ * 戻り値は新セッションのトークン（呼び出し側で cookie を差し替える）。
+ */
+export async function rotateSessions(db: D1Database, memberId: string): Promise<string> {
+  // 既存セッションを全削除してから新規発行する
+  await db.prepare("DELETE FROM sessions WHERE member_id = ?1").bind(memberId).run();
+  return createSession(db, memberId);
+}
+
 export async function getSessionUser(db: D1Database, token: string): Promise<SessionUser | null> {
   const row = await db
     .prepare(
@@ -95,25 +106,45 @@ export async function deleteSession(db: D1Database, token: string): Promise<void
 
 export const SESSION_COOKIE = "ih_session";
 
-// --- ログイン試行制限（総当たり対策） ---
-// email ベースで直近10分の失敗回数を数える。ip はログ・監査用に併記するだけ。
+// --- 試行制限（総当たり対策） ---
+// login_attempts テーブルを流用し、email 単位と ip 単位の二段で判定する。
+// login 以外（setup/accept/share）は email カラムに "__setup__" のような識別子キーを入れて分離する。
 
 const ATTEMPT_WINDOW_MIN = 10; // 判定に使う時間窓（分）
-const ATTEMPT_LIMIT = 5; // この回数以上の失敗でロック
+const ATTEMPT_LIMIT = 5; // email 単位のロック閾値（回数/10分）
+const IP_ATTEMPT_LIMIT = 20; // ip 単位のロック閾値（回数/10分・分散スプレー対策）
 
-/** 直近10分の失敗が5回以上なら true。 */
-export async function tooManyAttempts(db: D1Database, email: string, _ip: string): Promise<boolean> {
-  const row = await db
+/** email を照合・記録・判定で使う正規形（小文字trim）に揃える。大小文字の使い分けによる制限回避を封じる。 */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * ログイン試行が多すぎるか判定する。
+ * email 単位（5回/10分）に加えて ip 単位（20回/10分）の二段で見る。
+ * どちらかの閾値を超えていれば true。email は正規化済み前提。
+ */
+export async function tooManyAttempts(db: D1Database, email: string, ip: string): Promise<boolean> {
+  const byEmail = await db
     .prepare(
       `SELECT COUNT(*) AS n FROM login_attempts
        WHERE email = ?1 AND attempted_at >= datetime('now', ?2)`
     )
     .bind(email, `-${ATTEMPT_WINDOW_MIN} minutes`)
     .first<{ n: number }>();
-  return (row?.n ?? 0) >= ATTEMPT_LIMIT;
+  if ((byEmail?.n ?? 0) >= ATTEMPT_LIMIT) return true;
+
+  const byIp = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM login_attempts
+       WHERE ip = ?1 AND attempted_at >= datetime('now', ?2)`
+    )
+    .bind(ip, `-${ATTEMPT_WINDOW_MIN} minutes`)
+    .first<{ n: number }>();
+  return (byIp?.n ?? 0) >= IP_ATTEMPT_LIMIT;
 }
 
-/** ログイン失敗を1件記録する。ついでに1日より古い行を掃除する。 */
+/** ログイン失敗を1件記録する。ついでに1日より古い行を掃除する。email は正規化済み前提。 */
 export async function recordLoginFailure(db: D1Database, email: string, ip: string): Promise<void> {
   await db
     .prepare("INSERT INTO login_attempts (email, ip, attempted_at) VALUES (?1, ?2, datetime('now'))")
@@ -123,7 +154,37 @@ export async function recordLoginFailure(db: D1Database, email: string, ip: stri
   await db.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now','-1 day')").run();
 }
 
-/** ログイン成功時に、その email の失敗記録をすべて消す。 */
+/** ログイン成功時に、その email の失敗記録をすべて消す。email は正規化済み前提。 */
 export async function clearLoginFailures(db: D1Database, email: string): Promise<void> {
   await db.prepare("DELETE FROM login_attempts WHERE email = ?1").bind(email).run();
+}
+
+/**
+ * 汎用の ip 単位試行制限判定。login_attempts の email カラムに識別子 key を入れて用途を分離する。
+ * setup/accept/share など、email を持たないエンドポイントの ip レート制限に使う。
+ * 直近10分の (key, ip) 試行が limit 回以上なら true。
+ */
+export async function tooManyByKey(db: D1Database, key: string, ip: string, limit: number): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM login_attempts
+       WHERE email = ?1 AND ip = ?2 AND attempted_at >= datetime('now', ?3)`
+    )
+    .bind(key, ip, `-${ATTEMPT_WINDOW_MIN} minutes`)
+    .first<{ n: number }>();
+  return (row?.n ?? 0) >= limit;
+}
+
+/** 汎用の試行記録。email カラムに識別子 key を入れて1件記録し、1日より古い行を掃除する。 */
+export async function recordAttempt(db: D1Database, key: string, ip: string): Promise<void> {
+  await db
+    .prepare("INSERT INTO login_attempts (email, ip, attempted_at) VALUES (?1, ?2, datetime('now'))")
+    .bind(key, ip)
+    .run();
+  await db.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now','-1 day')").run();
+}
+
+/** 汎用の試行記録クリア。成功時に (key, ip) の記録を消す。 */
+export async function clearAttempts(db: D1Database, key: string, ip: string): Promise<void> {
+  await db.prepare("DELETE FROM login_attempts WHERE email = ?1 AND ip = ?2").bind(key, ip).run();
 }

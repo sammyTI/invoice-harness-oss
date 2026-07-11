@@ -6,6 +6,8 @@ declare global {
     interface Locals {
       user?: SessionUser;
       apiActor?: string;
+      /** APIトークンの権限スコープ（full=全操作 / readonly=参照のみ）。 */
+      apiScope?: "full" | "readonly";
     }
     interface Platform {
       env: {

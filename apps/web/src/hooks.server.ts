@@ -35,13 +35,32 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
   if (!db) return resolveWithSecurityHeaders(event, resolve);
 
-  // API（MCP/外部AI）: Bearer トークン認証
+  // API（MCP/外部AI）: Bearer トークン認証＋スコープ強制
   if (path.startsWith("/api/")) {
     const auth = event.request.headers.get("authorization") ?? "";
     const m = /^Bearer\s+(.+)$/.exec(auth);
-    const ok = m ? await verifyApiToken(db, m[1]) : false;
-    if (!ok) return json({ error: "unauthorized" }, 401);
+    const verified = m ? await verifyApiToken(db, m[1]) : { ok: false as const };
+    if (!verified.ok) return json({ error: "unauthorized" }, 401);
+    const scope = verified.scope ?? "full";
     event.locals.apiActor = "api";
+    event.locals.apiScope = scope;
+
+    const method = event.request.method;
+    const isRead = method === "GET" || method === "HEAD";
+
+    // 管理系API: メンバー情報・設定・監査ログ・取引明細・バックアップは
+    // 参照だけでも機微（誰がいるか・振込先・操作履歴・生の口座明細が漏れる）。
+    // readonly トークンではメソッド問わず（GET含め）一切触らせない。
+    const ADMIN_API = ["/api/members", "/api/settings", "/api/audit", "/api/transactions", "/api/backup"];
+    if (scope === "readonly" && ADMIN_API.some((p) => path.startsWith(p))) {
+      return json({ error: "forbidden: readonly token" }, 403);
+    }
+
+    // 基本ガード: readonly トークンは GET/HEAD 以外の書き込み系メソッドを一括拒否。
+    if (scope === "readonly" && !isRead) {
+      return json({ error: "forbidden: readonly token" }, 403);
+    }
+
     return resolveWithSecurityHeaders(event, resolve);
   }
 

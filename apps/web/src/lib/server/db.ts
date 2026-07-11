@@ -626,27 +626,36 @@ export async function updateMember(
 
 // ---------- API トークン（MCP / 外部AI連携） ----------
 
+/** APIトークンの権限スコープ。full=全操作 / readonly=参照のみ。 */
+export type ApiTokenScope = "full" | "readonly";
+
+/** 任意入力を full|readonly に正規化（不正値は full に矯正）。 */
+export function normApiTokenScope(v: unknown): ApiTokenScope {
+  return v === "readonly" ? "readonly" : "full";
+}
+
 export interface ApiTokenRow {
   id: string;
   name: string | null;
   created_at: string;
   last_used_at: string | null;
+  scope: ApiTokenScope;
 }
 
 export async function listApiTokens(db: D1Database): Promise<ApiTokenRow[]> {
   const { results } = await db
-    .prepare("SELECT id, name, created_at, last_used_at FROM api_tokens ORDER BY created_at DESC")
+    .prepare("SELECT id, name, created_at, last_used_at, scope FROM api_tokens ORDER BY created_at DESC")
     .all<ApiTokenRow>();
   return results ?? [];
 }
 
-/** 新規トークンを発行し、平文を返す（保存はハッシュのみ）。 */
-export async function createApiToken(db: D1Database, name: string): Promise<string> {
+/** 新規トークンを発行し、平文を返す（保存はハッシュのみ）。scope 既定は full。 */
+export async function createApiToken(db: D1Database, name: string, scope: ApiTokenScope = "full"): Promise<string> {
   const raw = "iht_" + randomToken(24);
   const hash = await sha256hex(raw);
   await db
-    .prepare("INSERT INTO api_tokens (id, name, token_hash, created_at) VALUES (?1,?2,?3,?4)")
-    .bind(crypto.randomUUID(), name, hash, new Date().toISOString())
+    .prepare("INSERT INTO api_tokens (id, name, token_hash, created_at, scope) VALUES (?1,?2,?3,?4,?5)")
+    .bind(crypto.randomUUID(), name, hash, new Date().toISOString(), normApiTokenScope(scope))
     .run();
   return raw;
 }
@@ -655,13 +664,22 @@ export async function deleteApiToken(db: D1Database, id: string): Promise<void> 
   await db.prepare("DELETE FROM api_tokens WHERE id = ?1").bind(id).run();
 }
 
-export async function verifyApiToken(db: D1Database, raw: string): Promise<boolean> {
-  if (!raw) return false;
+/** トークン検証結果。ok=一致 / scope=そのトークンの権限（未一致時は undefined）。 */
+export interface VerifyApiTokenResult {
+  ok: boolean;
+  scope?: ApiTokenScope;
+}
+
+export async function verifyApiToken(db: D1Database, raw: string): Promise<VerifyApiTokenResult> {
+  if (!raw) return { ok: false };
   const hash = await sha256hex(raw);
-  const row = await db.prepare("SELECT id FROM api_tokens WHERE token_hash = ?1").bind(hash).first<{ id: string }>();
-  if (!row) return false;
+  const row = await db
+    .prepare("SELECT id, scope FROM api_tokens WHERE token_hash = ?1")
+    .bind(hash)
+    .first<{ id: string; scope: string }>();
+  if (!row) return { ok: false };
   await db.prepare("UPDATE api_tokens SET last_used_at = ?2 WHERE id = ?1").bind(row.id, new Date().toISOString()).run();
-  return true;
+  return { ok: true, scope: normApiTokenScope(row.scope) };
 }
 
 // ---------- 送信履歴 ----------
@@ -742,13 +760,25 @@ export async function dumpAll(db: D1Database): Promise<Record<string, unknown[]>
   return out;
 }
 
+/** テーブルの実在列名を取得（PRAGMA table_info）。SQLインジェクション対策の allowlist に使う。 */
+async function tableColumns(db: D1Database, table: string): Promise<Set<string>> {
+  const { results } = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  return new Set((results ?? []).map((r) => r.name));
+}
+
+// 列名として許可する形（識別子のみ）。PRAGMA由来だが二重に検証する。
+const COL_NAME_RE = /^[a-z_][a-z0-9_]*$/i;
+
 export async function restoreAll(db: D1Database, data: Record<string, Record<string, unknown>[]>): Promise<void> {
   for (const t of BACKUP_TABLES) {
     const rows = data[t];
     if (!Array.isArray(rows)) continue;
+    // アップロードJSONのキーをそのままSQL列名にしない。実在列のみを allowlist で通す。
+    const allowed = await tableColumns(db, t);
     await db.prepare(`DELETE FROM ${t}`).run();
     for (const row of rows) {
-      const cols = Object.keys(row);
+      // 実在列 かつ 識別子として妥当なキーだけ採用（未知列・不正名は無視）
+      const cols = Object.keys(row).filter((c) => allowed.has(c) && COL_NAME_RE.test(c));
       if (!cols.length) continue;
       const placeholders = cols.map((_, i) => `?${i + 1}`).join(",");
       await db

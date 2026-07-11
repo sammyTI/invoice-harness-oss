@@ -4,6 +4,7 @@ import { getDB, getMemberByEmail } from "$lib/server/db";
 import {
   clearLoginFailures,
   createSession,
+  normalizeEmail,
   recordLoginFailure,
   SESSION_COOKIE,
   tooManyAttempts,
@@ -17,7 +18,8 @@ export const actions: Actions = {
   default: async ({ request, platform, cookies, url, getClientAddress }) => {
     const db = getDB(platform);
     const fd = await request.formData();
-    const email = String(fd.get("email") ?? "").trim();
+    // email は小文字trim正規化してから照合・記録・クリアに使う（大小文字使い分けによる制限回避を封じる）
+    const email = normalizeEmail(String(fd.get("email") ?? ""));
     const password = String(fd.get("password") ?? "");
     const next = String(fd.get("next") ?? "") || url.searchParams.get("next") || "/";
 
@@ -46,6 +48,9 @@ export const actions: Actions = {
     const token = await createSession(db, m.id);
     // maxAge 30日は DB 側 sessions.expires_at（createSession で 30日）と一致させる
     cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
-    throw redirect(303, next.startsWith("/") ? next : "/");
+    // オープンリダイレクト封じ: 単一スラッシュ始まりの内部パスのみ許可。
+    // "//evil.example"（プロトコル相対URL）や "\evil.example" を弾く。
+    const safeNext = next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
+    throw redirect(303, safeNext);
   },
 };

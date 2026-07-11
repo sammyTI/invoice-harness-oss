@@ -1,8 +1,15 @@
 <script>
+  import { onMount } from "svelte";
   export let data;
   export let form;
   $: s = data.settings;
   const today = new Date().toISOString().slice(0, 10);
+
+  let taxDlg;
+  onMount(() => {
+    // 税率追加のバリデーションエラー時はモーダルを開いたままにする
+    if (form?.taxError) taxDlg?.showModal();
+  });
 </script>
 
 <div class="page-head"><h1 class="page-title">課税・表示項目設定</h1></div>
@@ -90,14 +97,16 @@
 </form>
 
 <section class="section taxmaster">
-  <div class="section-head"><h2>税率マスタ</h2></div>
+  <div class="section-head taxhead">
+    <h2>税率マスタ</h2>
+    <button class="btn btn-primary btn-sm" type="button" on:click={() => taxDlg.showModal()} title="税率を追加">＋ 新規作成</button>
+  </div>
   <p class="help">
     税率が変わるときは、新しい適用開始日で行を追加してください（例: 標準 12% 2027-04-01）。
     帳票の発行日に応じた税率が作成画面の選択肢・既定になります。確定済みの過去帳票には影響しません。
   </p>
 
   {#if form?.taxOk}<p class="flash-ok">税率マスタを更新しました。</p>{/if}
-  {#if form?.taxError}<p class="flash-err">{form.taxError}</p>{/if}
 
   <table class="taxtable">
     <thead>
@@ -123,13 +132,22 @@
     </tbody>
   </table>
 
-  <form method="POST" action="?/addTaxRate" class="taxadd">
-    <label class="f"><span class="flab">ラベル</span><input class="input" name="label" placeholder="標準 / 軽減 など" required /></label>
-    <label class="f"><span class="flab">税率(%)</span><input class="input r" name="rate" type="number" min="0" max="100" step="1" placeholder="10" required /></label>
-    <label class="f"><span class="flab">適用開始日</span><input class="input" name="valid_from" type="date" value={today} required /></label>
-    <button type="submit" class="btn btn-primary btn-sm">追加</button>
-  </form>
 </section>
+
+<!-- 税率追加モーダル -->
+<dialog class="modal" bind:this={taxDlg}>
+  <div class="modal-head">
+    <h2>税率を追加</h2>
+    <button class="modal-x" type="button" on:click={() => taxDlg.close()} aria-label="閉じる">×</button>
+  </div>
+  <form class="modal-body" method="POST" action="?/addTaxRate">
+    {#if form?.taxError}<p class="flash-err">{form.taxError}</p>{/if}
+    <div class="field"><span class="lab">ラベル</span><input class="input" name="label" placeholder="標準 / 軽減 など" required /></div>
+    <div class="field"><span class="lab">税率(%)</span><input class="input" name="rate" type="number" min="0" max="100" step="1" placeholder="10" required /></div>
+    <div class="field"><span class="lab">適用開始日</span><input class="input" name="valid_from" type="date" value={today} required /></div>
+    <button type="submit" class="btn btn-primary" style="width:100%">追加する</button>
+  </form>
+</dialog>
 
 <style>
   form { max-width: 680px; }
@@ -141,16 +159,12 @@
   .help { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
   /* 税率マスタ */
   .taxmaster { max-width: 680px; margin-top: 24px; }
+  .taxhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .taxtable { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
   .taxtable th, .taxtable td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
   .taxtable th { font-size: 12px; color: var(--muted); font-weight: 700; }
   .taxtable .r { text-align: right; }
   .taxtable .empty { color: var(--muted); text-align: center; }
   .taxtable .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
-  .taxadd { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-  .taxadd .f { display: flex; flex-direction: column; gap: 4px; }
-  .taxadd .flab { font-size: 11px; color: var(--muted); font-weight: 700; }
-  .taxadd .input { width: 160px; }
-  .taxadd .input.r { width: 90px; text-align: right; }
   .btn-sm { padding: 8px 16px; font-size: 13px; }
 </style>

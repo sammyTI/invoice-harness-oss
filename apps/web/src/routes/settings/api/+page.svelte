@@ -123,11 +123,18 @@
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>名前</th><th>作成日</th><th>最終利用</th><th></th></tr></thead>
+          <thead><tr><th>名前</th><th>スコープ</th><th>作成日</th><th>最終利用</th><th></th></tr></thead>
           <tbody>
             {#each data.tokens as t}
               <tr>
                 <td><b>{t.name ?? "—"}</b></td>
+                <td>
+                  {#if t.scope === "readonly"}
+                    <span class="chip chip-draft">読み取り専用</span>
+                  {:else}
+                    <span class="chip chip-paid">フル</span>
+                  {/if}
+                </td>
                 <td class="num">{t.created_at.slice(0, 10)}</td>
                 <td class="num">{t.last_used_at ? t.last_used_at.slice(0, 16).replace("T", " ") : "未使用"}</td>
                 <td class="r"><form method="POST" action="?/delete"><input type="hidden" name="id" value={t.id} /><button class="del" type="submit">失効</button></form></td>
@@ -160,6 +167,17 @@
   <form class="section" method="POST" action="?/create">
     <div class="section-head"><h2>トークンを発行</h2></div>
     <div class="field"><span class="lab">名前（用途）</span><input class="input" name="name" placeholder="Claude Code 等" /></div>
+    <div class="field">
+      <span class="lab">スコープ（権限）</span>
+      <label class="scope-opt">
+        <input type="radio" name="scope" value="full" checked />
+        <span><b>フルアクセス（AI操作用・全機能）</b><br><span class="scope-desc">帳票の作成・発行、メンバー/設定変更まで全操作。</span></span>
+      </label>
+      <label class="scope-opt">
+        <input type="radio" name="scope" value="readonly" />
+        <span><b>読み取り専用（参照・集計のみ）</b><br><span class="scope-desc">帳票・顧客などの参照のみ。メンバー/設定/監査は不可。</span></span>
+      </label>
+    </div>
     <button class="btn btn-primary" type="submit" style="width:100%">発行する</button>
   </form>
 </div>
@@ -194,4 +212,7 @@
   .howto p { font-size: 13px; color: var(--ink-2); }
   pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; }
   code { background: var(--slate-soft); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .scope-opt { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 6px 0; cursor: pointer; }
+  .scope-opt input { margin-top: 3px; }
+  .scope-desc { color: var(--ink-2); font-size: 12px; }
 </style>

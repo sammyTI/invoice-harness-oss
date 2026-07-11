@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { getDB, getMemberByEmail, setMemberPassword } from "$lib/server/db";
-import { hashPassword, verifyPassword } from "$lib/server/auth";
+import { hashPassword, rotateSessions, SESSION_COOKIE, verifyPassword } from "$lib/server/auth";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, "/login");
@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-  default: async ({ request, platform, locals }) => {
+  default: async ({ request, platform, locals, cookies }) => {
     if (!locals.user) throw redirect(303, "/login");
     const db = getDB(platform);
     const fd = await request.formData();
@@ -31,6 +31,12 @@ export const actions: Actions = {
 
     const { hash, salt } = await hashPassword(next);
     await setMemberPassword(db, m.id, hash, salt);
+
+    // パスワード変更成功: 他端末を含む既存セッションを全破棄し、現在のブラウザに新セッションを発行し直す。
+    // 変更前パスワードで確立された旧セッションの乗っ取りを封じる。
+    const token = await rotateSessions(db, m.id);
+    // maxAge 30日は DB 側 sessions.expires_at（createSession で 30日）と一致させる
+    cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
     throw redirect(303, "/");
   },
 };

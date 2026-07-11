@@ -1,6 +1,6 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail } from "@sveltejs/kit";
-import { createApiToken, deleteApiToken, emailUsage, getDB, getMailConfig, listApiTokens, logEmail, setMailConfig } from "$lib/server/db";
+import { createApiToken, deleteApiToken, emailUsage, getDB, getMailConfig, listApiTokens, logEmail, normApiTokenScope, setMailConfig } from "$lib/server/db";
 import { sendEmail } from "$lib/server/email";
 
 /** APIキーの末尾4文字だけ見せるマスク（フルキーはクライアントに返さない）。 */
@@ -31,7 +31,9 @@ export const actions: Actions = {
     const db = getDB(platform);
     const fd = await request.formData();
     const name = String(fd.get("name") ?? "").trim() || "MCP";
-    const raw = await createApiToken(db, name);
+    // full|readonly 以外は full に矯正（normApiTokenScope が担保）
+    const scope = normApiTokenScope(fd.get("scope"));
+    const raw = await createApiToken(db, name, scope);
     return { created: raw };
   },
   delete: async ({ request, platform }) => {

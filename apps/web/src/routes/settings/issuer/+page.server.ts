@@ -31,7 +31,7 @@ export const actions: Actions = {
     const fd = await request.formData();
     const id = String(fd.get("id") ?? "");
     const f = parse(fd);
-    if (!id || !f.name) return fail(400, { error: "自社名は必須です。" });
+    if (!id || !f.name) return fail(400, { error: "自社名は必須です。", mode: "update" });
     await updateIssuer(db, id, f);
     return { ok: true };
   },
@@ -39,7 +39,7 @@ export const actions: Actions = {
     const db = getDB(platform);
     const fd = await request.formData();
     const f = parse(fd);
-    if (!f.name) return fail(400, { error: "自社名は必須です。" });
+    if (!f.name) return fail(400, { error: "自社名は必須です。", mode: "create" });
     await createIssuer(db, f);
     return { ok: true };
   },
