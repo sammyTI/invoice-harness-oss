@@ -51,8 +51,12 @@
       <a class="chip chip-prj" href={`/projects/${data.project.id}`} title="プロジェクトを開く">{data.project.name}</a>
     {:else if data.projects.length}
       <form method="POST" action="?/assignProject" class="prjassign">
-        <select class="input prjsel" name="project_id">
-          <option value="">案件に紐づけ…</option>
+        <select class="input prjsel" name="project_id" required={data.requireProject}>
+          {#if data.requireProject}
+            <option value="" disabled selected>選択してください</option>
+          {:else}
+            <option value="">案件に紐づけ…</option>
+          {/if}
           {#each data.projects as pr}<option value={pr.id}>{pr.name}（{pr.client_name}）</option>{/each}
         </select>
         <button class="btn btn-quiet btn-sm" type="submit">紐づけ</button>

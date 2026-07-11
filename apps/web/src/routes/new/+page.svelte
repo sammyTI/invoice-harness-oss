@@ -84,15 +84,19 @@
           <option value="__new__">＋ 新規取引先を登録…</option>
         </select>
       </div>
-      <div class="field"><span class="lab">プロジェクト</span>
+      <div class="field"><span class="lab">プロジェクト{#if data.requireProject}<span class="req">必須</span>{/if}</span>
         {#if data.project}
           <input type="hidden" name="project_id" value={data.project.id} />
           <div class="prjfixed"><span class="prjchip">{data.project.name}</span><a class="mini" href={`/projects/${data.project.id}`}>案件へ</a></div>
         {:else}
-          <select class="input" name="project_id" bind:value={projectSel}>
-            <option value="">（未割当）</option>
+          <select class="input" name="project_id" bind:value={projectSel} required={data.requireProject}>
+            <option value="">{data.requireProject ? "選択してください" : "（未割当）"}</option>
             {#each data.projects as pr}<option value={pr.id}>{pr.name}（{pr.client_name}）</option>{/each}
+            <option value="__new__">＋ 新規プロジェクトを作る…</option>
           </select>
+          {#if projectSel === "__new__"}
+            <input class="input newprj" name="project_new_name" placeholder="新規プロジェクト名（案件名）" required />
+          {/if}
         {/if}
       </div>
       <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" value={today} required /></div>
@@ -195,4 +199,6 @@
   .prjfixed { display: flex; align-items: center; gap: 10px; min-height: 38px; }
   .prjchip { display: inline-block; background: var(--primary-soft); color: var(--primary-d); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; }
   .mini { font-size: 12px; }
+  .req { display: inline-block; margin-left: 6px; background: var(--red-soft); color: var(--red); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
+  .newprj { margin-top: 8px; }
 </style>

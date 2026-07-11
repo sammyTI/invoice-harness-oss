@@ -24,7 +24,12 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const prev = `${mo === 1 ? y - 1 : y}-${String(mo === 1 ? 12 : mo - 1).padStart(2, "0")}`;
   const next = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}`;
 
-  const inMonth = docs.filter((d) => d.issue_date.startsWith(month) && d.status !== "canceled");
+  // 集計ベース: accrual=計上（発行日が当月）／ cash=入出金（入金・支払日 paid_at が当月）
+  const basis = url.searchParams.get("basis") === "cash" ? "cash" : "accrual";
+  const inMonth = docs.filter((d) => {
+    if (d.status === "canceled") return false;
+    return basis === "cash" ? !!d.paid_at?.startsWith(month) : d.issue_date.startsWith(month);
+  });
   const invoices = inMonth.filter((d) => REVENUE.has(d.type));
   const payments = inMonth.filter((d) => EXPENSE.has(d.type));
 
@@ -42,6 +47,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const achievement = target > 0 ? Math.round((revTotal / target) * 1000) / 10 : null;
 
   return {
+    basis,
     month,
     prev,
     next,

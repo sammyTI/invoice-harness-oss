@@ -33,6 +33,39 @@
   </div>
 </div>
 
+<nav class="hubnav" aria-label="ダッシュボード">
+  <a class="card hubcard" href="/clients">
+    <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span class="hlabel">顧客情報</span>
+    <span class="num hnum">{data.hub.clients}</span>
+    <span class="hunit">社</span>
+  </a>
+  <a class="card hubcard" href="/projects">
+    <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+    <span class="hlabel">プロジェクト情報</span>
+    <span class="num hnum">{data.hub.activeProjects}</span>
+    <span class="hunit">進行中</span>
+  </a>
+  <a class="card hubcard" href="/monthly">
+    <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <span class="hlabel">計上別情報</span>
+    <span class="num hnum">{formatYen(data.hub.monthAccrual)}</span>
+    <span class="hunit">今月計上</span>
+  </a>
+  <a class="card hubcard" href="/monthly?basis=cash">
+    <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3 21 7l-4 4"/><path d="M21 7H8"/><path d="m7 21-4-4 4-4"/><path d="M3 17h13"/></svg>
+    <span class="hlabel">月次入出金情報</span>
+    <span class="num hnum">{formatYen(data.hub.monthCash)}</span>
+    <span class="hunit">今月入金</span>
+  </a>
+  <a class="card hubcard" href="#divisions">
+    <svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>
+    <span class="hlabel">部門別情報</span>
+    <span class="num hnum">{data.hub.divisions}</span>
+    <span class="hunit">部門</span>
+  </a>
+</nav>
+
 {#if data.multiCompany}
   <div class="companynav">
     <a class="cbtn" class:active={!data.issuerId} href={`/?fy=${data.fyEndYear}${modeQ}`}>全社合算</a>
@@ -103,7 +136,7 @@
 </div>
 
 {#if data.hasDivisions}
-  <div class="card pl">
+  <div class="card pl" id="divisions">
     <div class="pl-head">
       <h2>部門別損益（{data.fyLabel}）</h2>
       <div class="pl-acts">
@@ -160,6 +193,15 @@
 {/if}
 
 <style>
+  .hubnav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0 0 18px; }
+  @media (max-width: 1080px) { .hubnav { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px) { .hubnav { grid-template-columns: repeat(2, 1fr); } }
+  .hubcard { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; text-decoration: none; color: inherit; transition: border-color 0.15s ease, transform 0.15s ease; }
+  .hubcard:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .hicon { width: 24px; height: 24px; color: var(--primary); margin-bottom: 4px; }
+  .hlabel { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .hnum { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+  .hunit { font-size: 11px; color: var(--muted); font-weight: 700; }
   .fynav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .fynav .toggle { border-color: var(--primary); color: var(--primary-d); font-weight: 700; }
   .companynav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }

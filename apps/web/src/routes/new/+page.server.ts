@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, getDB, getDefaultNoteBody, getDocDefaultNotes, getProject, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates, listProjects } from "$lib/server/db";
+import { createDocument, createProject, getDB, getDefaultNoteBody, getDocDefaultNotes, getProject, getSettings, listClients, listDivisions, listItems, listIssuers, listNoteTemplates, listProjects } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 
@@ -25,6 +25,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   // ?project= 指定時はそのプロジェクトに紐づけて作成（顧客もプリセット。売上側=案件の顧客、支払側=支払先を選ぶ）
   const projectId = url.searchParams.get("project");
   const project = projectId ? await getProject(db, projectId) : null;
+  const settings = await getSettings(db);
   return {
     type,
     project: project ? { id: project.id, name: project.name, client_id: project.client_id, issuer_id: project.issuer_id, division_id: project.division_id } : null,
@@ -38,7 +39,8 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
     // 種別ごとの既定備考があれば優先、なければ「既定」備考テンプレートを初期表示
     defaultNotes: (await getDocDefaultNotes(db, type)) || (await getDefaultNoteBody(db)),
     noteTemplates: await listNoteTemplates(db),
-    showTxn: (await getSettings(db)).invoice_show_transaction_date,
+    showTxn: settings.invoice_show_transaction_date,
+    requireProject: settings.require_project,
   };
 };
 
@@ -104,7 +106,28 @@ export const actions: Actions = {
       return fail(400, { error: "発行元・取引先・発行日・明細1行以上は必須です。" });
     }
 
-    const project_id = String(fd.get("project_id") ?? "") || null;
+    // プロジェクト（案件）の解決。__new__ ならその場で新規作成して紐づける。
+    const rawProject = String(fd.get("project_id") ?? "");
+    let project_id: string | null = rawProject || null;
+    if (rawProject === "__new__") {
+      const prjName = String(fd.get("project_new_name") ?? "").trim();
+      if (!prjName) return fail(400, { error: "新規プロジェクト名を入力してください。" });
+      // 顧客→プロジェクト→帳票の階層に沿って、この帳票の取引先・発行元・計上区分・発行日で案件を起票。
+      project_id = await createProject(db, {
+        name: prjName,
+        client_id,
+        issuer_id,
+        division_id,
+        status: "active",
+        start_date: issue_date,
+      });
+    }
+
+    const settings = await getSettings(db);
+    if (settings.require_project && !project_id) {
+      return fail(400, { error: "プロジェクトを選択してください（設定で必須になっています）" });
+    }
+
     const id = await createDocument(
       db,
       // 発行者＝ログイン中メンバー名を帳票にスナップショット（「担当：」に表示）。

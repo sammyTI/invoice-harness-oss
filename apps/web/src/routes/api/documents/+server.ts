@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { DOCUMENT_ORDER, type DocumentType } from "@invoice-harness/shared";
-import { createDocument, getDB, listClients, listDivisions, listDocuments, listIssuers, listProjects } from "$lib/server/db";
+import { createDocument, getDB, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects } from "$lib/server/db";
 
 export const GET: RequestHandler = async ({ platform, url }) => {
   const db = getDB(platform);
@@ -59,6 +59,14 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     const prj = (await listProjects(db)).find((p) => p.name === body.project_name);
     if (!prj) return json({ error: `project not found: ${body.project_name}` }, { status: 400 });
     projectId = prj.id;
+  }
+
+  // インスタンス設定でプロジェクト必須の場合、project_id / project_name のいずれも無ければ拒否。
+  if (!projectId) {
+    const settings = await getSettings(db);
+    if (settings.require_project) {
+      return json({ error: "project is required: project_name を指定してください（設定でプロジェクト必須）" }, { status: 400 });
+    }
   }
 
   // client (id or name; create if name not found)

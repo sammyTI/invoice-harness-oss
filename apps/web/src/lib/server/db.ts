@@ -36,6 +36,7 @@ interface SettingsRow {
   withholding: string;
   withholding_basis: string;
   invoice_show_transaction_date: number;
+  require_project: number;
   fiscal_month: number;
   accent_color: string;
 }
@@ -51,6 +52,7 @@ export async function getSettings(db: D1Database): Promise<Settings> {
     withholding: row.withholding as Settings["withholding"],
     withholding_basis: row.withholding_basis as Settings["withholding_basis"],
     invoice_show_transaction_date: row.invoice_show_transaction_date === 1,
+    require_project: row.require_project === 1,
     fiscal_month: row.fiscal_month ?? 3,
     accent_color: row.accent_color ?? "#1b59b0",
   };
@@ -62,7 +64,7 @@ export async function updateSettings(db: D1Database, s: Settings): Promise<void>
       `UPDATE settings SET
         date_format = ?1, tax_display = ?2, tax_rounding = ?3, amount_rounding = ?4,
         withholding = ?5, withholding_basis = ?6, invoice_show_transaction_date = ?7, fiscal_month = ?8,
-        accent_color = ?9
+        accent_color = ?9, require_project = ?10
        WHERE id = 'default'`
     )
     .bind(
@@ -74,7 +76,8 @@ export async function updateSettings(db: D1Database, s: Settings): Promise<void>
       s.withholding_basis,
       s.invoice_show_transaction_date ? 1 : 0,
       s.fiscal_month,
-      s.accent_color
+      s.accent_color,
+      s.require_project ? 1 : 0
     )
     .run();
 }

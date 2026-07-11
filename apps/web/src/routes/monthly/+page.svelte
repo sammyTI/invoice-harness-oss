@@ -3,30 +3,37 @@
   export let data;
   $: [yy, mm] = data.month.split("-");
   $: issQ = data.issuerId ? `&iss=${data.issuerId}` : "";
+  $: basisQ = data.basis === "cash" ? "&basis=cash" : "";
+  $: cash = data.basis === "cash";
   const effDiv = (d) => d.division_name ?? d.project_division_name ?? null;
 </script>
 
 <div class="page-head">
   <h1 class="page-title">月次入出金<span class="tag num">{yy}年{mm}月</span></h1>
   <div class="fynav">
-    <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.prev}${issQ}`}>← 前月</a>
-    {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/monthly?${issQ.slice(1)}`}>今月</a>{/if}
-    <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.next}${issQ}`}>翌月 →</a>
+    <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.prev}${issQ}${basisQ}`}>← 前月</a>
+    {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/monthly?${(issQ + basisQ).slice(1)}`}>今月</a>{/if}
+    <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.next}${issQ}${basisQ}`}>翌月 →</a>
   </div>
+</div>
+
+<div class="modeswitch">
+  <a class="mode" class:active={!cash} href={`/monthly?m=${data.month}${issQ}`}>計上ベース（請求日）</a>
+  <a class="mode" class:active={cash} href={`/monthly?m=${data.month}${issQ}&basis=cash`}>入出金ベース（入金日・支払日）</a>
 </div>
 
 {#if data.multiCompany}
   <div class="companynav">
-    <a class="cbtn" class:active={!data.issuerId} href={`/monthly?m=${data.month}`}>全社合算</a>
+    <a class="cbtn" class:active={!data.issuerId} href={`/monthly?m=${data.month}${basisQ}`}>全社合算</a>
     {#each data.issuers as iss}
-      <a class="cbtn" class:active={data.issuerId === iss.id} href={`/monthly?m=${data.month}&iss=${iss.id}`}>{iss.name}</a>
+      <a class="cbtn" class:active={data.issuerId === iss.id} href={`/monthly?m=${data.month}&iss=${iss.id}${basisQ}`}>{iss.name}</a>
     {/each}
   </div>
 {/if}
 
 <div class="kpis">
   <div class="kpi card accent-rev">
-    <span class="lab">請求額合計（税込）</span>
+    <span class="lab">{cash ? "入金額合計（税込）" : "請求額合計（税込）"}</span>
     <span class="val num">{formatYen(data.kpi.revTotal)}</span>
     <span class="sub num">入金済 {formatYen(data.kpi.revPaid)} ／ 入金待ち {formatYen(data.kpi.revUnpaid)}</span>
   </div>
@@ -36,7 +43,7 @@
     <span class="sub num">支払済 {formatYen(data.kpi.expPaid)} ／ 支払待ち {formatYen(data.kpi.expUnpaid)}</span>
   </div>
   <div class="kpi card accent-profit">
-    <span class="lab">粗利（請求 − 支払）</span>
+    <span class="lab">{cash ? "収支（入金 − 支払）" : "粗利（請求 − 支払）"}</span>
     <span class="val num" class:neg={data.kpi.profit < 0}>{formatYen(data.kpi.profit)}</span>
     {#if data.target > 0}
       <span class="sub num">売上目標 {formatYen(data.target)}・達成率 <b class:ok={data.achievement >= 100}>{data.achievement}%</b></span>
@@ -56,13 +63,13 @@
 
 <div class="cols">
   <section class="pane">
-    <div class="pane-head rev"><h2>請求情報（{data.invoices.length}件）</h2><span class="num">{formatYen(data.kpi.revTotal)}</span></div>
+    <div class="pane-head rev"><h2>{cash ? "入金情報" : "請求情報"}（{data.invoices.length}件）</h2><span class="num">{formatYen(data.kpi.revTotal)}</span></div>
     {#if data.invoices.length === 0}
-      <div class="empty">この月の請求はありません。</div>
+      <div class="empty">{cash ? "この月の入金はありません。" : "この月の請求はありません。"}</div>
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>請求先・件名</th><th class="r">金額(税込)</th><th>請求日</th><th>入金日</th><th>状態</th></tr></thead>
+          <thead><tr><th>請求先・件名</th><th class="r">金額(税込)</th>{#if cash}<th>入金日</th><th>請求日</th>{:else}<th>請求日</th><th>入金日</th>{/if}<th>状態</th></tr></thead>
           <tbody>
             {#each data.invoices as d}
               <tr>
@@ -75,8 +82,13 @@
                   </div>
                 </td>
                 <td class="r num">{formatYen(d.total)}</td>
-                <td class="num">{d.issue_date.slice(5)}</td>
-                <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                {#if cash}
+                  <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                  <td class="num">{d.issue_date.slice(5)}</td>
+                {:else}
+                  <td class="num">{d.issue_date.slice(5)}</td>
+                  <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                {/if}
                 <td><span class="chip {lifecycle(d).cls}">{lifecycle(d).label}</span></td>
               </tr>
             {/each}
@@ -87,13 +99,13 @@
   </section>
 
   <section class="pane">
-    <div class="pane-head exp"><h2>支払情報（{data.payments.length}件）</h2><span class="num">{formatYen(data.kpi.expTotal)}</span></div>
+    <div class="pane-head exp"><h2>{cash ? "支払情報（支払済）" : "支払情報"}（{data.payments.length}件）</h2><span class="num">{formatYen(data.kpi.expTotal)}</span></div>
     {#if data.payments.length === 0}
       <div class="empty">この月の支払はありません。</div>
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>支払先・件名</th><th class="r">金額(税込)</th><th>支払期日</th><th>支払日</th><th>状態</th></tr></thead>
+          <thead><tr><th>支払先・件名</th><th class="r">金額(税込)</th>{#if cash}<th>支払日</th><th>支払期日</th>{:else}<th>支払期日</th><th>支払日</th>{/if}<th>状態</th></tr></thead>
           <tbody>
             {#each data.payments as d}
               <tr>
@@ -106,8 +118,13 @@
                   </div>
                 </td>
                 <td class="r num">{formatYen(d.total)}</td>
-                <td class="num">{d.due_date ? d.due_date.slice(5) : "—"}</td>
-                <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                {#if cash}
+                  <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                  <td class="num">{d.due_date ? d.due_date.slice(5) : "—"}</td>
+                {:else}
+                  <td class="num">{d.due_date ? d.due_date.slice(5) : "—"}</td>
+                  <td class="num">{d.paid_at ? d.paid_at.slice(5, 10) : "—"}</td>
+                {/if}
                 <td><span class="chip {lifecycle(d).cls}">{lifecycle(d).label}</span></td>
               </tr>
             {/each}
@@ -120,6 +137,10 @@
 
 <style>
   .fynav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .modeswitch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin: 0 0 16px; }
+  .mode { padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none; }
+  .mode:hover { color: var(--primary-d); }
+  .mode.active { background: var(--primary); color: #fff; }
   .companynav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
   .cbtn { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 700; text-decoration: none; }
   .cbtn:hover { border-color: var(--primary); color: var(--primary-d); }

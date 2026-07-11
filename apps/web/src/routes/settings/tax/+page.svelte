@@ -76,6 +76,15 @@
     </label>
   </section>
 
+  <section class="section">
+    <div class="section-head"><h2>プロジェクト（案件）管理</h2></div>
+    <label class="check">
+      <input type="checkbox" name="require_project" checked={s.require_project} />
+      帳票にプロジェクト（案件）を必須にする
+    </label>
+    <p class="help">オンにすると、帳票の新規作成時にプロジェクトの選択が必須になります（顧客→プロジェクト→帳票の階層で管理）。</p>
+  </section>
+
   <button type="submit" class="btn btn-primary">設定を保存</button>
 </form>
 

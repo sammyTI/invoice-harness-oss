@@ -465,7 +465,7 @@ server.tool(
 
 server.tool(
   "create_document",
-  "帳票を新規作成（下書き）。client_name（無ければ自動作成）と明細を指定。複数社運用では issuer_name で会社を、division_name で部門を指定。typeは既定で請求書。作成後 issue_document で発行（確定）する。",
+  "帳票を新規作成（下書き）。client_name（無ければ自動作成）と明細を指定。複数社運用では issuer_name で会社を、division_name で部門を指定。typeは既定で請求書。作成後 issue_document で発行（確定）する。インスタンス設定でプロジェクト必須の場合は project_name が必要。",
   {
     type: z
       .enum(["estimate", "delivery_note", "order", "invoice", "receipt", "payment_notice"])

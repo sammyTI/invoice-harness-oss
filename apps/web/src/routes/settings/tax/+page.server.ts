@@ -21,6 +21,7 @@ export const actions: Actions = {
       withholding: (fd.get("withholding") as Settings["withholding"]) ?? "none",
       withholding_basis: (fd.get("withholding_basis") as Settings["withholding_basis"]) ?? "exclusive",
       invoice_show_transaction_date: fd.get("invoice_show_transaction_date") === "on",
+      require_project: fd.get("require_project") === "on",
       fiscal_month: Math.min(12, Math.max(1, Number(fd.get("fiscal_month")) || 3)),
     };
     await updateSettings(db, next);

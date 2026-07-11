@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { effectiveDivision, getDB, getSettings, listDivisions, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
+import { effectiveDivision, getDB, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -121,7 +121,26 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const hasDivisions = divisions.some((v) => v.name !== "未設定");
   const hasDivTargets = divisions.some((v) => v.target > 0);
 
+  // ダッシュボードハブ（ナビカードのミニ統計）。閲覧可能スコープ（allDocs）全体で算出。
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const clientsList = await listClients(db);
+  const projectsList = await listProjects(db);
+  const monthAccrual = allDocs
+    .filter((d) => REVENUE_TYPES.has(d.type) && d.status !== "canceled" && d.issue_date.startsWith(thisMonth))
+    .reduce((a, d) => a + d.total, 0);
+  const monthCash = allDocs
+    .filter((d) => REVENUE_TYPES.has(d.type) && d.status !== "canceled" && d.paid_at?.startsWith(thisMonth))
+    .reduce((a, d) => a + d.total, 0);
+  const hub = {
+    clients: clientsList.length,
+    activeProjects: projectsList.filter((p) => p.status === "active").length,
+    monthAccrual,
+    monthCash,
+    divisions: allDivisions.length,
+  };
+
   return {
+    hub,
     fyLabel: periodLabel,
     calendarMode,
     fyEndYear: fy.endYear,

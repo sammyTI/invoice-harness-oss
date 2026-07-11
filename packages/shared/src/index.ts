@@ -150,6 +150,7 @@ export interface Settings {
   withholding: WithholdingMode;
   withholding_basis: WithholdingBasis;
   invoice_show_transaction_date: boolean;
+  require_project: boolean; // 帳票にプロジェクト（案件）を必須にする
   fiscal_month: number; // 決算月 (1-12)
   accent_color: string; // 帳票アクセントカラー
 }
@@ -162,6 +163,7 @@ export const DEFAULT_SETTINGS: Settings = {
   withholding: "none",
   withholding_basis: "exclusive",
   invoice_show_transaction_date: false,
+  require_project: false,
   fiscal_month: 3,
   accent_color: "#1b59b0",
 };

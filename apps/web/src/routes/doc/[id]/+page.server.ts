@@ -16,6 +16,7 @@ import {
   getDocument,
   getEmailTemplate,
   getProject,
+  getSettings,
   getRelated,
   listDivisions,
   listProjects,
@@ -49,6 +50,7 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
     divisionName,
     project: project ? { id: project.id, name: project.name } : null,
     projects: (await listProjects(db)).filter((pr) => pr.status !== "done").map((pr) => ({ id: pr.id, name: pr.name, client_name: pr.client_name })),
+    requireProject: (await getSettings(db)).require_project,
   };
 };
 
