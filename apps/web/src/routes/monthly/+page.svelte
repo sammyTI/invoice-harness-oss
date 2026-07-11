@@ -1,5 +1,6 @@
 <script>
   import { formatYen, lifecycle } from "@invoice-harness/shared";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   $: [yy, mm] = data.month.split("-");
   $: issQ = data.issuerId ? `&iss=${data.issuerId}` : "";
@@ -14,6 +15,10 @@
     <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.prev}${issQ}${basisQ}`}>← 前月</a>
     {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/monthly?${(issQ + basisQ).slice(1)}`}>今月</a>{/if}
     <a class="btn btn-quiet btn-sm" href={`/monthly?m=${data.next}${issQ}${basisQ}`}>翌月 →</a>
+    <SettingsGear links={[
+      { href: "/settings/targets", label: "売上目標" },
+      { href: "/settings/divisions", label: "計上区分（部門）" },
+    ]} />
   </div>
 </div>
 

@@ -1,5 +1,6 @@
 <script>
   import { DOCUMENT_FLOW, DOCUMENT_LABELS, formatDate, formatYen, lifecycle } from "@invoice-harness/shared";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
 
@@ -110,6 +111,11 @@
       </form>
     {/if}
     <a class="btn btn-ghost btn-sm" href={`/doc/${doc.id}/print`} target="_blank" rel="noopener">プレビュー / PDF</a>
+    <SettingsGear links={[
+      { href: "/settings/templates/email", label: "メールテンプレ" },
+      { href: "/settings/api", label: "メール連携（Resend）" },
+      { href: "/settings/tax", label: "帳票・税" },
+    ]} />
   </div>
 </div>
 

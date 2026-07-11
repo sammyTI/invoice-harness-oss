@@ -12,7 +12,7 @@
   <form class="section" method="POST" action="?/save">
     <div class="section-head"><h2>{LABELS[t.key] ?? t.key}</h2></div>
     {#if t.key === "invite"}
-      <p class="hint">差し込み変数：<code>{"{name}"}</code>=招待した人の名前 <code>{"{email}"}</code>=ログインメールアドレス <code>{"{password}"}</code>=初期パスワード <code>{"{link}"}</code>=ログインURL（本文中でボタンになる）</p>
+      <p class="hint">差し込み変数：<code>{"{name}"}</code>=招待される人の名前（宛名） <code>{"{inviter}"}</code>=招待した本人（あなた）の名前 <code>{"{company}"}</code>=会社名（自社情報の先頭） <code>{"{email}"}</code>=ログインメールアドレス <code>{"{password}"}</code>=初期パスワード <code>{"{link}"}</code>=ログインURL（本文中でボタンになる）</p>
     {/if}
     <input type="hidden" name="key" value={t.key} />
     <div class="field"><span class="lab">件名</span><input class="input" name="subject" value={t.subject} /></div>

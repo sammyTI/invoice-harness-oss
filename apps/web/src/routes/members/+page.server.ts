@@ -12,10 +12,11 @@ function normalizeRole(role: string): string {
 
 // 招待メールのテンプレ未保存時に使う既定文面（設定 ▸ メールテンプレの既定と一致）
 const INVITE_TEMPLATE_DEFAULT = {
-  subject: "【Invoice Harness】ログイン情報のご案内",
+  subject: "【{company}】{inviter} さんからログイン情報のご案内",
   body: `{name} 様
 
-Invoice Harness のログイン情報をご案内します。下記からログインしてください。
+{company} の {inviter} さんから、請求書管理ツール（Invoice Harness）への招待が届きました。
+下記のログイン情報でログインしてください。
 
 メールアドレス: {email}
 初期パスワード: {password}
@@ -40,7 +41,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 };
 
 export const actions: Actions = {
-  invite: async ({ request, platform, url }) => {
+  invite: async ({ request, platform, url, locals }) => {
     const db = getDB(platform);
     const fd = await request.formData();
     const name = String(fd.get("name") ?? "").trim();
@@ -62,7 +63,10 @@ export const actions: Actions = {
     if (mailCfg.RESEND_API_KEY && sendMail) {
       // テンプレ（設定 ▸ メールテンプレ）を優先。未保存の環境では既定文面へフォールバック
       const tpl = (await getEmailTemplate(db, "invite")) ?? INVITE_TEMPLATE_DEFAULT;
-      const mail = renderEmailTemplate(tpl, { name, email, password: tempPassword, link: loginUrl });
+      // 招待者名（ログイン中ユーザー）と会社名（自社情報の先頭）を差し込み用に用意
+      const inviter = locals.user?.name ?? "";
+      const company = (await listIssuers(db))[0]?.name ?? "Invoice Harness";
+      const mail = renderEmailTemplate(tpl, { name, email, password: tempPassword, link: loginUrl, inviter, company });
       const res = await sendEmail(mailCfg, { to: email, subject: mail.subject, html: mail.html });
       emailed = res.ok;
       // 送信失敗しても招待自体は成功扱い。失敗理由は画面へ返し、初期パスワードは必ず表示する

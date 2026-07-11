@@ -3,14 +3,6 @@
   import { page } from "$app/stores";
   export let data;
 
-  const docNav = [
-    { href: "/docs/estimate", label: "見積書" },
-    { href: "/docs/delivery_note", label: "納品書" },
-    { href: "/docs/invoice", label: "請求書" },
-    { href: "/docs/receipt", label: "領収書" },
-    { href: "/docs/order", label: "発注書" },
-    { href: "/docs/payment_notice", label: "支払通知書" },
-  ];
   const tplNav = [
     { href: "/settings/templates/document", label: "帳票テンプレート" },
     { href: "/settings/templates/notes", label: "備考テンプレート" },
@@ -72,36 +64,99 @@
       <span>Invoice Harness</span>
     </div>
     <nav>
-      <a class:active={path === "/"} href="/">収支一覧</a>
+      <a class:active={path === "/"} href="/">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>収支一覧</span>
+      </a>
 
       <div class="sec">帳票</div>
-      {#each docNav as n}
-        <a class:active={active(n.href)} href={n.href}>{n.label}</a>
-      {/each}
+      <a class:active={active("/docs/estimate")} href="/docs/estimate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"/><path d="M18.5 12.5 21 15l-4 4-2.5-.5.5-2.5z"/><line x1="9" y1="8" x2="14" y2="8"/><line x1="9" y1="12" x2="12" y2="12"/></svg>
+        <span>見積書</span>
+      </a>
+      <a class:active={active("/docs/delivery_note")} href="/docs/delivery_note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v8a1 1 0 0 1-.5.87l-7.5 4.3a2 2 0 0 1-2 0l-7.5-4.3A1 1 0 0 1 3 16V8"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="m7.5 4.7 9 5.2"/><line x1="12" y1="12" x2="12" y2="21.5"/></svg>
+        <span>納品書</span>
+      </a>
+      <a class:active={active("/docs/invoice")} href="/docs/invoice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+        <span>請求書</span>
+      </a>
+      <a class:active={active("/docs/receipt")} href="/docs/receipt">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="8.5 14 10.5 16 15 11.5"/></svg>
+        <span>領収書</span>
+      </a>
+      <a class:active={active("/docs/order")} href="/docs/order">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h2.2l2.2 12.2a1.5 1.5 0 0 0 1.5 1.2h9.4a1.5 1.5 0 0 0 1.5-1.2L21 7H5"/></svg>
+        <span>発注書</span>
+      </a>
+      <a class:active={active("/docs/payment_notice")} href="/docs/payment_notice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 17 6-6"/><polyline points="10 11 15 11 15 16"/></svg>
+        <span>支払通知書</span>
+      </a>
 
       <div class="sec">管理</div>
-      <a class:active={active("/projects")} href="/projects">プロジェクト</a>
-      <a class:active={active("/clients")} href="/clients">取引先</a>
-      <a class:active={active("/items")} href="/items">品目マスタ</a>
+      <a class:active={active("/projects")} href="/projects">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h5l2 2h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>
+        <span>プロジェクト</span>
+      </a>
+      <a class:active={active("/clients")} href="/clients">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.2"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.1a3.2 3.2 0 0 1 0 5.8"/></svg>
+        <span>取引先</span>
+      </a>
+      <a class:active={active("/items")} href="/items">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3H5a2 2 0 0 0-2 2v6l9.3 9.3a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8L11 3z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>
+        <span>品目マスタ</span>
+      </a>
       {#if isAdmin}
-        <a class:active={active("/settings/divisions")} href="/settings/divisions">計上区分（部門）</a>
-        <a class:active={active("/transactions")} href="/transactions">入出金・消込</a>
+        <a class:active={active("/settings/divisions")} href="/settings/divisions">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>計上区分（部門）</span>
+        </a>
+        <a class:active={active("/transactions")} href="/transactions">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v18"/><polyline points="3 7 7 3 11 7"/><path d="M17 21V3"/><polyline points="13 17 17 21 21 17"/></svg>
+          <span>入出金・消込</span>
+        </a>
       {/if}
-      <a class:active={active("/search")} href="/search">帳票検索</a>
+      <a class:active={active("/search")} href="/search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="21" y1="21" x2="15.2" y2="15.2"/></svg>
+        <span>帳票検索</span>
+      </a>
       {#if isAdmin}
-        <a class:active={active("/members")} href="/members">メンバー</a>
+        <a class:active={active("/members")} href="/members">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-4A3.5 3.5 0 0 0 3 18.5V20"/><circle cx="8.5" cy="8" r="3.2"/><line x1="18.5" y1="8" x2="18.5" y2="14"/><line x1="15.5" y1="11" x2="21.5" y2="11"/></svg>
+          <span>メンバー</span>
+        </a>
       {/if}
 
       <div class="sec">レポート・会計</div>
-      <a class:active={active("/monthly")} href="/monthly">月次入出金</a>
-      <a class:active={active("/reports/tax")} href="/reports/tax">消費税集計表</a>
-      <a class:active={active("/reports/aging")} href="/reports/aging">売掛金年齢表</a>
-      <a href="/reports/export" data-sveltekit-reload>CSVエクスポート</a>
-      <a href="/reports/yayoi" data-sveltekit-reload>弥生 仕訳CSV</a>
+      <a class:active={active("/monthly")} href="/monthly">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="16" y1="2.5" x2="16" y2="6.5"/></svg>
+        <span>月次入出金</span>
+      </a>
+      <a class:active={active("/reports/tax")} href="/reports/tax">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
+        <span>消費税集計表</span>
+      </a>
+      <a class:active={active("/reports/aging")} href="/reports/aging">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+        <span>売掛金年齢表</span>
+      </a>
+      <a href="/reports/export" data-sveltekit-reload>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>CSVエクスポート</span>
+      </a>
+      <a href="/reports/yayoi" data-sveltekit-reload>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>弥生 仕訳CSV</span>
+      </a>
 
       {#if isAdmin}
         <div class="sec">設定</div>
-        <a class:active={settingsActive} href="/settings">設定一覧</a>
+        <a class:active={settingsActive} href="/settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+          <span>設定一覧</span>
+        </a>
       {/if}
     </nav>
 
@@ -183,6 +238,9 @@
   nav { display: flex; flex-direction: column; padding: 10px 12px; }
   nav a {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
     color: var(--sidebar-ink);
     text-decoration: none;
     padding: 8px 12px;
@@ -192,6 +250,9 @@
     margin: 1px 0;
     transition: background-color 0.12s ease, color 0.12s ease;
   }
+  nav a svg { flex-shrink: 0; opacity: 0.75; transition: opacity 0.12s ease; }
+  nav a:hover svg,
+  nav a.active svg { opacity: 1; }
   nav a.sub { font-size: 13px; padding-left: 18px; }
   nav a:hover { background: rgba(255, 255, 255, 0.06); color: var(--sidebar-ink-strong); text-decoration: none; }
   nav a.active {

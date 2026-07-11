@@ -1,6 +1,7 @@
 <script>
   import { DOCUMENT_SHORT, formatYen, lifecycle } from "@invoice-harness/shared";
   import { page } from "$app/stores";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   // viewer（閲覧のみ）は作成系UIを非表示
   $: isViewer = $page.data.user?.role === "viewer";
@@ -30,6 +31,12 @@
     <a class="btn btn-quiet btn-sm" href={`/?fy=${data.prevFy}${issQ}${divQ}${modeQ}`}>← {data.calendarMode ? "前年" : "前期"}</a>
     {#if !data.isCurrent}<a class="btn btn-quiet btn-sm" href={`/?${(issQ + divQ + modeQ).slice(1)}`}>{data.calendarMode ? "本年" : "今期"}</a>{/if}
     <a class="btn btn-quiet btn-sm" href={`/?fy=${data.nextFy}${issQ}${divQ}${modeQ}`}>{data.calendarMode ? "翌年" : "次期"} →</a>
+    <SettingsGear links={[
+      { href: "/settings/targets", label: "売上目標" },
+      { href: "/settings/divisions", label: "計上区分（部門）" },
+      { href: "/settings/issuer", label: "自社情報・決算月" },
+      { href: "/settings/tax", label: "帳票・税" },
+    ]} />
   </div>
 </div>
 

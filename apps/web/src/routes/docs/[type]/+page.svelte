@@ -1,6 +1,7 @@
 <script>
   import { formatYen, lifecycle } from "@invoice-harness/shared";
   import { page } from "$app/stores";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
   // viewer（閲覧のみ）は作成・一括操作を非表示
@@ -42,7 +43,14 @@
 
 <div class="page-head">
   <h1 class="page-title">{data.label}</h1>
-  {#if !isViewer}<a class="btn btn-primary" href={`/new?type=${data.type}`}>＋ 新規作成</a>{/if}
+  <div class="head-acts">
+    {#if !isViewer}<a class="btn btn-primary" href={`/new?type=${data.type}`}>＋ 新規作成</a>{/if}
+    <SettingsGear links={[
+      { href: "/settings/tax", label: "帳票・税" },
+      { href: "/settings/templates/document", label: "帳票テンプレ" },
+      { href: "/settings/templates/email", label: "メールテンプレ" },
+    ]} />
+  </div>
 </div>
 
 <form class="searchbar" method="GET">
@@ -143,6 +151,7 @@
 </div>
 
 <style>
+  .head-acts { display: flex; align-items: center; gap: 8px; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
   .searchbar .fq { max-width: 240px; }
   .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }

@@ -31,12 +31,41 @@ export const load: PageServerLoad = async ({ platform, url }) => {
   const db = getDB(platform);
   const editId = url.searchParams.get("edit");
   const editing = editId ? await getClient(db, editId) : null;
+
+  // フィルター条件（q=キーワード / cat=顧客区分ID）
+  const q = (url.searchParams.get("q") ?? "").trim();
+  const cat = (url.searchParams.get("cat") ?? "").trim();
+
+  const all = await listClients(db);
+  const catMap = await clientCategoryNameMap(db);
+
+  // 区分IDでの絞り込みには client_id→区分ID配列 のマップが必要。
+  // catMap は区分「名」ベースなので、リンクテーブルからIDベースのマップを別途構築する。
+  const catIdMap: Record<string, string[]> = {};
+  if (cat) {
+    for (const c of all) catIdMap[c.id] = await getClientCategoryIds(db, c.id);
+  }
+
+  const ql = q.toLowerCase();
+  const clients = all.filter((c) => {
+    // キーワード: 取引先名・担当・メールの部分一致（小文字比較）
+    if (q) {
+      const hay = `${c.name} ${c.contact ?? ""} ${c.email ?? ""}`.toLowerCase();
+      if (!hay.includes(ql)) return false;
+    }
+    // 顧客区分: 指定IDを持つ取引先のみ
+    if (cat && !(catIdMap[c.id] ?? []).includes(cat)) return false;
+    return true;
+  });
+
   return {
-    clients: await listClients(db),
+    clients,
     editing,
     categories: await listClientCategories(db),
-    catMap: await clientCategoryNameMap(db),
+    catMap,
     editingCatIds: editing ? await getClientCategoryIds(db, editing.id) : [],
+    q,
+    cat,
   };
 };
 

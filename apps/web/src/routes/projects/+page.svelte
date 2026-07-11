@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { formatYen } from "@invoice-harness/shared";
   import { page } from "$app/stores";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
   // viewer（閲覧のみ）は作成系UIを非表示
@@ -24,7 +25,13 @@
 
 <div class="page-head">
   <h1 class="page-title">プロジェクト</h1>
-  {#if !isViewer}<button class="btn btn-primary" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button>{/if}
+  <div class="head-acts">
+    {#if !isViewer}<button class="btn btn-primary" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button>{/if}
+    <SettingsGear links={[
+      { href: "/settings/divisions", label: "計上区分（部門）" },
+      { href: "/settings/targets", label: "売上目標" },
+    ]} />
+  </div>
 </div>
 <p class="hint">顧客ごとの案件に、請求書・見積書・支払（発注/支払通知）を紐づけて収支（粗利）を管理します。</p>
 
@@ -109,6 +116,7 @@
 </dialog>
 
 <style>
+  .head-acts { display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--ink-2); font-size: 13px; margin-top: -8px; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 12px 0 14px; flex-wrap: wrap; }
   .searchbar .fq { max-width: 280px; }

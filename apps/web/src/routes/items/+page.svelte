@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { formatYen } from "@invoice-harness/shared";
   import { page } from "$app/stores";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
   $: editing = data.editing;
@@ -20,7 +21,12 @@
 
 <div class="page-head">
   <h1 class="page-title">品目マスタ</h1>
-  {#if !isViewer}<button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button>{/if}
+  <div class="head-acts">
+    {#if !isViewer}<button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button>{/if}
+    <SettingsGear links={[
+      { href: "/settings/tax", label: "帳票・税" },
+    ]} />
+  </div>
 </div>
 <p class="hint">よく使う品目を登録すると、帳票の作成時に品目名から単価・単位・税率を呼び出せます。</p>
 
@@ -88,6 +94,7 @@
 {/if}
 
 <style>
+  .head-acts { display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--ink-2); font-size: 13px; margin: -8px 0 14px; }
   .ops { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .ops form { margin: 0; }

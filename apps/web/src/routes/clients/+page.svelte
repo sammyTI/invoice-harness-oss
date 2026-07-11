@@ -12,10 +12,12 @@
   let editDlg;
   let catDlg;
   onMount(() => {
-    // ?edit= 付きで来たら編集モーダルを開く。閉じたら一覧へ戻す
-    if (data.editing) editDlg?.showModal();
-    else if (form?.error) addDlg?.showModal();
+    // 追加モーダルはバリデーションエラー時に開く（クライアント遷移は絡まないのでonMountで十分）
+    if (form?.error) addDlg?.showModal();
   });
+  // クライアント遷移でも ?edit= でモーダルが開くように（onMountは再実行されないため）
+  // editDlg は {#if editing} 内なので bind:this の代入でこの文が再評価される
+  $: if (data.editing && editDlg && !editDlg.open) editDlg.showModal();
   const closeEdit = () => goto("/clients");
 </script>
 
@@ -31,8 +33,24 @@
 
 {#if form?.ok}<p class="flash-ok">保存しました。</p>{/if}
 
+<form class="searchbar" method="GET">
+  <input class="input fq" name="q" value={data.q} placeholder="取引先名・担当・メールで検索" />
+  {#if data.categories.length}
+    <select class="input fsel" name="cat">
+      <option value="">すべての区分</option>
+      {#each data.categories as cat}<option value={cat.id} selected={cat.id === data.cat}>{cat.name}</option>{/each}
+    </select>
+  {/if}
+  <button class="btn btn-quiet btn-sm" type="submit">絞り込み</button>
+  {#if data.q || data.cat}<a class="btn btn-quiet btn-sm" href="/clients">クリア</a>{/if}
+</form>
+
 {#if data.clients.length === 0}
-  <div class="empty">取引先がまだありません。{#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button></div>{/if}</div>
+  {#if data.q || data.cat}
+    <div class="empty">条件に一致する取引先がありません。</div>
+  {:else}
+    <div class="empty">取引先がまだありません。{#if !isViewer}<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button></div>{/if}</div>
+  {/if}
 {:else}
   <div class="table-wrap">
     <table class="table">
@@ -143,6 +161,9 @@
 
 <style>
   .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .searchbar { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .searchbar .fq { max-width: 240px; }
+  .searchbar .fsel { width: auto; max-width: 200px; font-size: 13px; }
   .mini { font-size: 13px; }
   .muted { color: var(--muted); }
   .catchip { display: inline-block; background: var(--primary-soft); color: var(--primary-d); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin: 0 4px 4px 0; }

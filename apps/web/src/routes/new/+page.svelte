@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
 
@@ -46,6 +47,50 @@
       lines = lines;
     }
   }
+  // 取引先はページ遷移せずその場で追加できるよう、loadの配列をローカルコピーして扱う。
+  let clients = [...data.clients];
+  let clientDlg;
+  let ncName = "";
+  let ncHonorific = "御中";
+  let ncContact = "";
+  let ncEmail = "";
+  let ncError = "";
+  let ncBusy = false;
+  function openClientDlg() {
+    ncName = "";
+    ncHonorific = "御中";
+    ncContact = "";
+    ncEmail = "";
+    ncError = "";
+    clientDlg.showModal();
+  }
+  // ページ遷移・フォーム送信を発生させず、fetchだけで取引先を追加する（入力中の明細・件名・日付を保持）。
+  async function addClient() {
+    ncError = "";
+    if (!ncName.trim()) { ncError = "取引先名を入力してください。"; return; }
+    ncBusy = true;
+    try {
+      const res = await fetch("/new/quick-client", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: ncName, honorific: ncHonorific, contact: ncContact, email: ncEmail }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        ncError = j.error || "追加に失敗しました";
+        return;
+      }
+      const { id, name } = await res.json();
+      clients = [...clients, { id, name, honorific: ncHonorific }];
+      clientSel = id; // 追加した取引先を選択状態にする
+      clientDlg.close();
+    } catch {
+      ncError = "追加に失敗しました";
+    } finally {
+      ncBusy = false;
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   let notes = data.defaultNotes ?? "";
   let insertSel = "";
@@ -58,7 +103,16 @@
 
 <div class="page-head">
   <h1 class="page-title">{data.label}を作成</h1>
-  <a class="btn btn-quiet" href={`/docs/${data.type}`}>一覧へ</a>
+  <div class="head-acts">
+    <a class="btn btn-quiet" href={`/docs/${data.type}`}>一覧へ</a>
+    <SettingsGear
+      links={[
+        { href: "/settings/tax", label: "帳票・税（取引日/プロジェクト必須など）" },
+        { href: "/settings/issuer", label: "自社情報（振込先・社印）" },
+        { href: "/settings/templates/notes", label: "備考テンプレ" },
+      ]}
+    />
+  </div>
 </div>
 
 {#if form?.error}<p class="flash-err">{form.error}</p>{/if}
@@ -79,10 +133,13 @@
         </select>
       </div>
       <div class="field"><span class="lab">{isCostType ? "支払先（外注先・仕入先）" : "取引先"}</span>
-        <select class="input" name="client_id" bind:value={clientSel} required>
-          {#each data.clients as c}<option value={c.id}>{c.name} {c.honorific}</option>{/each}
-          <option value="__new__">＋ 新規取引先を登録…</option>
-        </select>
+        <div class="clientrow">
+          <select class="input" name="client_id" bind:value={clientSel} required>
+            {#each clients as c}<option value={c.id}>{c.name} {c.honorific}</option>{/each}
+            <option value="__new__">＋ 新規取引先を登録…</option>
+          </select>
+          <button type="button" class="btn btn-quiet btn-sm" on:click={openClientDlg}>＋ 新規</button>
+        </div>
       </div>
       <div class="field"><span class="lab">プロジェクト{#if data.requireProject}<span class="req">必須</span>{/if}</span>
         {#if data.project}
@@ -172,7 +229,35 @@
   </div>
 </form>
 
+<!-- 取引先のインライン追加モーダル。formはmethod="dialog"、追加ボタンはtype="button"でfetch完結。ページ遷移・送信を起こさない。 -->
+<dialog class="modal" bind:this={clientDlg}>
+  <div class="modal-head">
+    <h2>取引先を追加</h2>
+    <button class="modal-x" type="button" on:click={() => clientDlg.close()} aria-label="閉じる">×</button>
+  </div>
+  <form class="modal-body" method="dialog" on:submit|preventDefault={addClient}>
+    {#if ncError}<p class="flash-err">{ncError}</p>{/if}
+    <div class="grid2">
+      <div class="field"><span class="lab">取引先名 *</span><input class="input" bind:value={ncName} required /></div>
+      <div class="field"><span class="lab">敬称</span>
+        <select class="input" bind:value={ncHonorific}><option>御中</option><option>様</option></select>
+      </div>
+      <div class="field"><span class="lab">担当</span><input class="input" bind:value={ncContact} placeholder="総務部 ご担当者様" /></div>
+      <div class="field"><span class="lab">メール</span><input class="input" type="email" bind:value={ncEmail} /></div>
+    </div>
+    <div class="actions" style="margin-top:14px">
+      <button type="button" class="btn btn-primary" on:click={addClient} disabled={ncBusy}>{ncBusy ? "追加中…" : "追加する"}</button>
+      <button type="button" class="btn btn-quiet" on:click={() => clientDlg.close()}>閉じる</button>
+    </div>
+  </form>
+</dialog>
+
 <style>
+  .head-acts { display: flex; gap: 8px; align-items: center; }
+  /* 取引先select＋「＋ 新規」ボタンを同じ行に。ボタンは折り返さない。 */
+  .clientrow { display: flex; gap: 8px; align-items: center; }
+  .clientrow > .input { min-width: 0; flex: 1; }
+  .clientrow > .btn { white-space: nowrap; flex: none; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   .grid2 > .field { min-width: 0; }
   @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }

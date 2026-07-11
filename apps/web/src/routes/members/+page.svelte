@@ -1,6 +1,7 @@
 <script>
   import { enhance } from "$app/forms";
   import { onMount } from "svelte";
+  import SettingsGear from "$lib/SettingsGear.svelte";
   export let data;
   export let form;
 
@@ -37,7 +38,13 @@
 
 <div class="page-head">
   <h1 class="page-title">メンバー</h1>
-  <button class="btn btn-primary" type="button" on:click={() => inviteDlg.showModal()} title="メンバーを招待">＋ 新規作成</button>
+  <div class="head-acts">
+    <button class="btn btn-primary" type="button" on:click={() => inviteDlg.showModal()} title="メンバーを招待">＋ 新規作成</button>
+    <SettingsGear links={[
+      { href: "/settings/api", label: "メール連携（Resend）" },
+      { href: "/settings/templates/email", label: "メールテンプレ（招待文面）" },
+    ]} />
+  </div>
 </div>
 
 <p class="note">
@@ -207,6 +214,7 @@
 </dialog>
 
 <style>
+  .head-acts { display: flex; align-items: center; gap: 8px; }
   .note { background: var(--primary-soft); border: 1px solid #cfe0fb; color: var(--primary-d); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; }
   .cred { background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
   .cred-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
