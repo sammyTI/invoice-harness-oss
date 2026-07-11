@@ -4,6 +4,7 @@ import { DOCUMENT_LABELS, lifecycle, type DocumentType } from "@invoice-harness/
 import { effectiveDivision, getDB, listDocuments } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 import { csvResponse } from "$lib/server/csv";
+import { todayJst } from "$lib/server/today";
 
 const VALID: DocumentType[] = ["estimate", "delivery_note", "order", "invoice", "receipt", "payment_notice"];
 
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ params, platform, url, locals }) => 
   const db = getDB(platform);
   const allowed = await allowedIssuerIds(db, locals.user);
   const loaded = await listDocuments(db, type, allowed);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
 
   // 一覧と同じ絞り込み: 会社（発行元）＋q（取引先名・件名・番号）＋部門＋プロジェクト＋発行日の期間
   const iss = url.searchParams.get("iss") ?? "";

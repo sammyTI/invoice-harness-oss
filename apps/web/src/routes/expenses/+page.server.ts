@@ -14,6 +14,7 @@ import {
   listIssuers,
 } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 // 前月の YYYY-MM を返す。
 function prevMonth(ym: string): string {
@@ -36,7 +37,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const issParam = url.searchParams.get("iss") ?? "";
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const mParam = url.searchParams.get("m") ?? "";
   const month = /^\d{4}-\d{2}$/.test(mParam) ? mParam : today.slice(0, 7);
 

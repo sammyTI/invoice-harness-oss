@@ -4,6 +4,7 @@ import { cashFlowForMonth, effectiveDivision, getDB, listDocuments, listIssuers 
 import type { CashFlowRow } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { csvResponse } from "$lib/server/csv";
+import { todayJst } from "$lib/server/today";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const issParam = url.searchParams.get("iss") ?? "";
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const mParam = url.searchParams.get("m") ?? "";
   const month = /^\d{4}-\d{2}$/.test(mParam) ? mParam : today.slice(0, 7);
 

@@ -2,6 +2,7 @@ import type { PageServerLoad } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
 import { canViewPayroll, getDB, getSettings, listIssuers, plSummary } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 import { error } from "@sveltejs/kit";
 
 // 損益計算書（PL）。会計年度の12ヶ月×科目マトリクスで、売上・原価・粗利・販管費・営業利益を見る。
@@ -9,7 +10,7 @@ import { error } from "@sveltejs/kit";
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   const settings = await getSettings(db);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
 
   // 月の並びを決める基準月。既定は決算月。fm=1 で暦年（1〜12月）へ切替可（targets/monthly と同じ流儀）。
   const fmParam = Number(url.searchParams.get("fm"));
@@ -31,32 +32,20 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   // 給与閲覧権限。false のとき plSummary は機微科目を除外し confidentialHidden=true・営業利益 null を返す。
   const includeConfidential = await canViewPayroll(db, locals.user);
 
-  // 年間サマリ（合計・粗利・営業利益・confidentialHidden・月別 rev/cogs/sgaTotal）
+  // 年間サマリ＋科目×月マトリクスを1回で取得する。
+  // plSummary が sgaByMonth（科目→ym→金額）まで返すので、月ごとの再呼び出しは不要。
   const summary = await plSummary(db, yms, issuerId || undefined, { includeConfidential });
 
-  // 科目×月のマトリクスを組む。各月の科目別内訳が要るため月ごとにも plSummary を呼び、
-  // 権限判定（includeConfidential）を全呼び出しで一致させる。
-  const monthlySga = await Promise.all(
-    yms.map((ym) => plSummary(db, [ym], issuerId || undefined, { includeConfidential }))
-  );
-  // category → { label, total, byMonth: number[12] }
-  const sgaRowMap = new Map<string, { label: string; total: number; byMonth: number[] }>();
-  // 年間の科目順を基準にして行を作る（plSummary が EXPENSE_CATEGORIES 順を保証）
-  for (const line of summary.sga) {
-    sgaRowMap.set(line.category, { label: line.label, total: line.amount, byMonth: new Array(yms.length).fill(0) });
-  }
-  monthlySga.forEach((ps, mi) => {
-    for (const line of ps.sga) {
-      let row = sgaRowMap.get(line.category);
-      if (!row) {
-        // 年間には無いが月次に出た科目（理論上起きないが保険）
-        row = { label: line.label, total: 0, byMonth: new Array(yms.length).fill(0) };
-        sgaRowMap.set(line.category, row);
-      }
-      row.byMonth[mi] = line.amount;
-    }
+  // 科目×月のマトリクスを組む。年間の科目順（EXPENSE_CATEGORIES 順）を基準に行を作り、
+  // 各セルは sgaByMonth から yms の並びで引く。
+  const sgaRows = summary.sga.map((line) => {
+    const cells = summary.sgaByMonth[line.category] ?? {};
+    return {
+      label: line.label,
+      total: line.amount,
+      byMonth: yms.map((ym) => cells[ym] ?? 0),
+    };
   });
-  const sgaRows = [...sgaRowMap.values()];
 
   return {
     fy,

@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { DOCUMENT_ORDER, type DocumentType } from "@invoice-harness/shared";
 import { createDocument, getDB, getSettings, listClients, listDivisions, listDocuments, listIssuers, listProjects } from "$lib/server/db";
+import { todayJst } from "$lib/server/today";
 
 export const GET: RequestHandler = async ({ platform, url }) => {
   const db = getDB(platform);
@@ -102,7 +103,7 @@ export const POST: RequestHandler = async ({ platform, request }) => {
       type,
       issuer_id: issuerId,
       client_id: clientId,
-      issue_date: body.issue_date || new Date().toISOString().slice(0, 10),
+      issue_date: body.issue_date || todayJst(),
       due_date: body.due_date ?? null,
       subject: body.subject ?? null,
       notes: body.notes ?? null,

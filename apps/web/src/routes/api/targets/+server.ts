@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
 import { getDB, getSettings, listDivisions, listIssuers, listTargets, setTarget } from "$lib/server/db";
+import { todayJst } from "$lib/server/today";
 
 // 売上目標の一覧。?month=YYYY-MM で単月、?fy=決算年 でその年度の12ヶ月分。省略時は今年度。
 export const GET: RequestHandler = async ({ platform, url }) => {
@@ -17,7 +18,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     yms = [monthParam];
     scope = { month: monthParam };
   } else {
-    const current = fiscalYearForDate(new Date().toISOString().slice(0, 10), settings.fiscal_month).endYear;
+    const current = fiscalYearForDate(todayJst(), settings.fiscal_month).endYear;
     const fy = Number(url.searchParams.get("fy")) || current;
     yms = fiscalMonths(fiscalYearByEndYear(fy, settings.fiscal_month)).map((m) => m.ym);
     scope = { fy };

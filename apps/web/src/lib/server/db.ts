@@ -15,6 +15,7 @@ import {
 } from "@invoice-harness/shared";
 import { appendAudit, sha256hex } from "./audit";
 import { randomToken } from "./auth";
+import { todayJst } from "./today";
 
 export function getDB(platform: App.Platform | undefined): D1Database {
   const db = platform?.env?.DB;
@@ -241,6 +242,17 @@ export async function resolveClientCategoryNames(db: D1Database, names: string[]
   return ids;
 }
 
+// 絞り込み用: client_id -> 区分ID配列（全取引先ぶんを1クエリで）。
+// 一覧/CSVで取引先ごとに getClientCategoryIds を呼ぶ N+1 を避ける。
+export async function clientCategoryIdMap(db: D1Database): Promise<Record<string, string[]>> {
+  const { results } = await db
+    .prepare("SELECT client_id AS cid, category_id AS catId FROM client_category_links")
+    .all<{ cid: string; catId: string }>();
+  const map: Record<string, string[]> = {};
+  for (const r of results ?? []) (map[r.cid] ??= []).push(r.catId);
+  return map;
+}
+
 // 一覧表示用: client_id -> 区分名の配列
 export async function clientCategoryNameMap(db: D1Database): Promise<Record<string, string[]>> {
   const { results } = await db
@@ -296,13 +308,24 @@ export interface ProjectListRow extends Project {
 const PRJ_REVENUE = `SELECT COALESCE(SUM(total),0) FROM documents WHERE project_id = p.id AND type = 'invoice' AND status != 'canceled'`;
 const PRJ_EXPENSE = `SELECT COALESCE(SUM(total),0) FROM documents WHERE project_id = p.id AND type IN ('order','payment_notice') AND status != 'canceled'`;
 
+// 案件ごとの売上/支払/件数を1パスで集計する派生表。
+// 相関サブクエリ（案件数×3クエリ）を避け、documents を1回だけ GROUP BY して JOIN する。
+// doc_count は取消も含めた総数（従来の COUNT(*) と同一。revenue/expense は取消除く）。
+const PRJ_AGG = `SELECT project_id,
+    SUM(CASE WHEN type='invoice' THEN total ELSE 0 END) AS revenue,
+    SUM(CASE WHEN type IN ('order','payment_notice') THEN total ELSE 0 END) AS expense
+  FROM documents WHERE status != 'canceled' GROUP BY project_id`;
+const PRJ_COUNT = `SELECT project_id, COUNT(*) AS doc_count FROM documents GROUP BY project_id`;
+
 export async function listProjects(db: D1Database, clientId?: string): Promise<ProjectListRow[]> {
   const base = `SELECT p.*, c.name AS client_name, dv.name AS division_name,
-      (${PRJ_REVENUE}) AS revenue,
-      (${PRJ_EXPENSE}) AS expense,
-      (SELECT COUNT(*) FROM documents WHERE project_id = p.id) AS doc_count
+      COALESCE(agg.revenue,0) AS revenue,
+      COALESCE(agg.expense,0) AS expense,
+      COALESCE(cnt.doc_count,0) AS doc_count
     FROM projects p JOIN clients c ON c.id = p.client_id
     LEFT JOIN divisions dv ON dv.id = p.division_id
+    LEFT JOIN (${PRJ_AGG}) agg ON agg.project_id = p.id
+    LEFT JOIN (${PRJ_COUNT}) cnt ON cnt.project_id = p.id
     ${clientId ? "WHERE p.client_id = ?1" : ""}
     ORDER BY p.status = 'done', p.created_at DESC`;
   const stmt = clientId ? db.prepare(base).bind(clientId) : db.prepare(base);
@@ -412,6 +435,31 @@ export async function setTarget(db: D1Database, ym: string, scopeType: "company"
       .bind(ym, scopeType, scopeId)
       .run();
   }
+}
+
+/**
+ * 複数の売上目標をまとめて保存する（1回の db.batch）。setTarget を逐次 await する代わりに使う。
+ * amount>0 は UPSERT、amount<=0 は該当行を DELETE（setTarget と同じ挙動）。
+ * entries が空なら何もしない。
+ */
+export async function setTargetsBatch(
+  db: D1Database,
+  entries: { ym: string; scopeType: "company" | "division"; scopeId: string; amount: number }[]
+): Promise<void> {
+  if (entries.length === 0) return;
+  const stmts = entries.map((e) =>
+    e.amount > 0
+      ? db
+          .prepare(
+            `INSERT INTO monthly_targets (ym, scope_type, scope_id, amount) VALUES (?1,?2,?3,?4)
+             ON CONFLICT(ym, scope_type, scope_id) DO UPDATE SET amount = ?4`
+          )
+          .bind(e.ym, e.scopeType, e.scopeId, Math.round(e.amount))
+      : db
+          .prepare("DELETE FROM monthly_targets WHERE ym = ?1 AND scope_type = ?2 AND scope_id = ?3")
+          .bind(e.ym, e.scopeType, e.scopeId)
+  );
+  await db.batch(stmts);
 }
 
 /** 顧客単位の収支（管理上の顧客ベース＝直接この顧客宛の帳票＋この顧客のプロジェクトに紐づく帳票。取消除く・税込）。 */
@@ -1699,7 +1747,7 @@ export async function convertDocument(
 ): Promise<string | null> {
   const full = await getDocument(db, id);
   if (!full) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const newId = await createDocument(
     db,
     {
@@ -1969,6 +2017,11 @@ export interface PlSummary {
   /** 機微科目を除外表示したか（true=給与・法定福利費が隠されている）。 */
   confidentialHidden: boolean;
   months: PlMonthRow[];
+  /**
+   * 科目×月のセル（category → ym → 金額）。sga と同じ科目集合・同じ機微フィルタ後の値。
+   * PL画面の「科目×月マトリクス」をこの1回の呼び出しで組み立てるために返す。
+   */
+  sgaByMonth: Record<string, Record<string, number>>;
 }
 
 const REV_TYPES = new Set(["invoice"]);
@@ -1980,7 +2033,11 @@ const COGS_TYPES = new Set(["order", "payment_notice"]);
  * - sga: 科目別の販管費合計。includeConfidential=false なら機微科目（給与・法定福利費）を除外し
  *        confidentialHidden=true を返す。
  * - operatingProfit / 各月 op: includeConfidential=false のときは（人件費が欠けるため）null。
- * listDocuments を再利用（canceled除外・issuer フィルタ対応）。
+ * - sgaByMonth: 科目×月のセル（画面のマトリクス用）。
+ *
+ * 集計は2本の GROUP BY クエリで完結させる（帳票＝月×種別、経費＝月×科目×機微）。
+ * 表示期間が連続とは限らないため、SQLでは start〜end の範囲で絞ったうえで
+ * TS側で ymSet に含まれる月だけを採用する（安全側）。
  */
 export async function plSummary(
   db: D1Database,
@@ -1991,27 +2048,94 @@ export async function plSummary(
   const includeConfidential = opts?.includeConfidential ?? false;
   const ymSet = new Set(yms);
 
-  // 帳票（売上・原価）。issuer 単一指定は allowed=[issuerId] で絞る。
-  const allowed = issuerId ? [issuerId] : null;
-  const docs = await listDocuments(db, undefined, allowed);
-  const activeDocs = docs.filter((d) => d.status !== "canceled" && ymSet.has(d.issue_date.slice(0, 7)));
+  // 空期間なら即返す（プレースホルダ生成やクエリを避ける）
+  if (yms.length === 0) {
+    return {
+      revenue: 0, cogs: 0, grossProfit: 0, sga: [], sgaTotal: 0,
+      operatingProfit: includeConfidential ? 0 : null, confidentialHidden: false,
+      months: [], sgaByMonth: {},
+    };
+  }
 
-  // 経費（販管費）。表示期間に含まれる月だけ拾う。
-  const allExpenses = (await Promise.all(yms.map((ym) => listExpenses(db, ym, issuerId)))).flat();
-  const expenses = includeConfidential ? allExpenses : allExpenses.filter((e) => e.confidential !== 1);
-  const confidentialHidden = !includeConfidential && allExpenses.some((e) => e.confidential === 1);
+  // 表示期間の下限・上限（issue_date は YYYY-MM-DD 前提。月末は末日を跨がぬよう '-31' で上限）
+  const sorted = [...yms].sort();
+  const start = `${sorted[0]}-01`;
+  const end = `${sorted[sorted.length - 1]}-31`;
 
-  // 全体合計
+  // (1) 帳票の月×種別 集計（取消除く・issuer 単一指定に対応）。
+  const docBinds: string[] = [start, end];
+  let docIssuerCond = "";
+  if (issuerId) {
+    docBinds.push(issuerId);
+    docIssuerCond = ` AND issuer_id = ?${docBinds.length}`;
+  }
+  const { results: docAgg } = await db
+    .prepare(
+      `SELECT substr(issue_date,1,7) AS ym, type, SUM(total) AS amt
+       FROM documents
+       WHERE status != 'canceled' AND issue_date >= ?1 AND issue_date <= ?2${docIssuerCond}
+         AND type IN ('invoice','order','payment_notice')
+       GROUP BY ym, type`
+    )
+    .bind(...docBinds)
+    .all<{ ym: string; type: string; amt: number }>();
+
+  // (2) 経費の月×科目×機微 集計（表示月に限定）。
+  const ph = yms.map((_, i) => `?${i + 1}`).join(",");
+  const expBinds: string[] = [...yms];
+  let expIssuerCond = "";
+  if (issuerId) {
+    expBinds.push(issuerId);
+    expIssuerCond = ` AND issuer_id = ?${expBinds.length}`;
+  }
+  const { results: expAgg } = await db
+    .prepare(
+      `SELECT ym, category, confidential, SUM(amount) AS amt
+       FROM expenses
+       WHERE ym IN (${ph})${expIssuerCond}
+       GROUP BY ym, category, confidential`
+    )
+    .bind(...expBinds)
+    .all<{ ym: string; category: string; confidential: number; amt: number }>();
+
+  // ---- 帳票（売上・原価） ----
   let revenue = 0;
   let cogs = 0;
-  for (const d of activeDocs) {
-    if (REV_TYPES.has(d.type)) revenue += d.total;
-    else if (COGS_TYPES.has(d.type)) cogs += d.total;
+  // 月別 rev/cogs（マトリクス・月別内訳用）
+  const revByYm = new Map<string, number>();
+  const cogsByYm = new Map<string, number>();
+  for (const r of docAgg ?? []) {
+    if (!ymSet.has(r.ym)) continue; // 範囲内でも表示対象外の月は除外
+    const amt = r.amt ?? 0;
+    if (REV_TYPES.has(r.type)) {
+      revenue += amt;
+      revByYm.set(r.ym, (revByYm.get(r.ym) ?? 0) + amt);
+    } else if (COGS_TYPES.has(r.type)) {
+      cogs += amt;
+      cogsByYm.set(r.ym, (cogsByYm.get(r.ym) ?? 0) + amt);
+    }
+  }
+
+  // ---- 経費（販管費） ----
+  // 機微行が1つでもあれば（除外表示のとき）confidentialHidden=true。
+  const confidentialHidden = !includeConfidential && (expAgg ?? []).some((e) => e.confidential === 1);
+  // includeConfidential=false のときは機微科目を除外して集計する。
+  const usableExp = (expAgg ?? []).filter((e) => includeConfidential || e.confidential !== 1);
+
+  // 科目→合計、科目→(月→金額) を作る
+  const byCat = new Map<string, number>();
+  const byCatMonth = new Map<string, Map<string, number>>();
+  const sgaMByYm = new Map<string, number>();
+  for (const e of usableExp) {
+    const amt = e.amt ?? 0;
+    byCat.set(e.category, (byCat.get(e.category) ?? 0) + amt);
+    let m = byCatMonth.get(e.category);
+    if (!m) byCatMonth.set(e.category, (m = new Map()));
+    m.set(e.ym, (m.get(e.ym) ?? 0) + amt);
+    sgaMByYm.set(e.ym, (sgaMByYm.get(e.ym) ?? 0) + amt);
   }
 
   // 科目別 sga（EXPENSE_CATEGORIES の並び順を保つ）
-  const byCat = new Map<string, number>();
-  for (const e of expenses) byCat.set(e.category, (byCat.get(e.category) ?? 0) + e.amount);
   const sga: PlSgaLine[] = EXPENSE_CATEGORIES.filter((c) => byCat.has(c.key)).map((c) => ({
     category: c.key,
     label: c.label,
@@ -2025,18 +2149,22 @@ export async function plSummary(
   const grossProfit = revenue - cogs;
   const operatingProfit = includeConfidential ? grossProfit - sgaTotal : null;
 
-  // 月別内訳
+  // 科目×月のセル（sga と同じ科目集合で埋める）
+  const sgaByMonth: Record<string, Record<string, number>> = {};
+  for (const line of sga) {
+    const m = byCatMonth.get(line.category);
+    const cells: Record<string, number> = {};
+    if (m) for (const [ym, amt] of m) cells[ym] = amt;
+    sgaByMonth[line.category] = cells;
+  }
+
+  // 月別内訳（yms の順序を保つ）
   const months: PlMonthRow[] = yms.map((ym) => {
-    let rev = 0;
-    let cog = 0;
-    for (const d of activeDocs) {
-      if (d.issue_date.slice(0, 7) !== ym) continue;
-      if (REV_TYPES.has(d.type)) rev += d.total;
-      else if (COGS_TYPES.has(d.type)) cog += d.total;
-    }
-    const sgaM = expenses.filter((e) => e.ym === ym).reduce((a, e) => a + e.amount, 0);
+    const rev = revByYm.get(ym) ?? 0;
+    const cog = cogsByYm.get(ym) ?? 0;
+    const sgaM = sgaMByYm.get(ym) ?? 0;
     return { ym, revenue: rev, cogs: cog, sgaTotal: sgaM, op: includeConfidential ? rev - cog - sgaM : null };
   });
 
-  return { revenue, cogs, grossProfit, sga, sgaTotal, operatingProfit, confidentialHidden, months };
+  return { revenue, cogs, grossProfit, sga, sgaTotal, operatingProfit, confidentialHidden, months, sgaByMonth };
 }

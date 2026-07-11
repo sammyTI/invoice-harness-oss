@@ -29,6 +29,7 @@ import {
 import { renderEmailTemplate, sendEmail } from "$lib/server/email";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, assertDocAccess, canAccessIssuer } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 export const load: PageServerLoad = async ({ params, platform, url, locals }) => {
   const db = getDB(platform);
@@ -184,7 +185,7 @@ export const actions: Actions = {
     const full = await getDocument(db, params.id);
     if (!full) throw error(404, "帳票が見つかりません");
     const fd = await request.formData();
-    const paidDate = String(fd.get("paid_date") ?? "") || new Date().toISOString().slice(0, 10);
+    const paidDate = String(fd.get("paid_date") ?? "") || todayJst();
     const amount = Number(fd.get("amount")) || full.totals.payable || full.totals.total;
     const method = String(fd.get("method") ?? "") || null;
     const reference = String(fd.get("reference") ?? "").trim() || null;

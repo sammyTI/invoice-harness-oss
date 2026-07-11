@@ -4,6 +4,7 @@ import { DOCUMENT_LABELS, type DocumentType } from "@invoice-harness/shared";
 import { deleteDocument, DocumentLockedError, effectiveDivision, getDB, listDivisions, listDocuments, listIssuers, listProjects, markSent } from "$lib/server/db";
 import { getActor } from "$lib/server/audit";
 import { allowedIssuerIds, assertDocAccess, canAccessIssuer } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 const VALID: DocumentType[] = ["estimate", "delivery_note", "order", "invoice", "receipt", "payment_notice"];
 const PAGE_SIZE = 20;
@@ -14,7 +15,7 @@ export const load: PageServerLoad = async ({ params, platform, url, locals }) =>
   const db = getDB(platform);
   const allowed = await allowedIssuerIds(db, locals.user);
   const loaded = await listDocuments(db, type, allowed);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
 
   // フィルター: 会社（発行元）＋キーワード（取引先名・件名・番号）＋部門＋プロジェクト＋発行日の期間
   const iss = url.searchParams.get("iss") ?? "";

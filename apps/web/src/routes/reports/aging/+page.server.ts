@@ -1,6 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { getDB } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 function daysBetween(a: string, b: string): number {
   const da = new Date(a + "T00:00:00Z").getTime();
@@ -10,7 +11,7 @@ function daysBetween(a: string, b: string): number {
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
   const db = getDB(platform);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
 
   const allowed = await allowedIssuerIds(db, locals.user);
   let issuerCond = "";

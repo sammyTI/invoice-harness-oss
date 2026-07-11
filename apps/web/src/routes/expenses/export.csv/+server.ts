@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { canViewPayroll, expenseCategoryLabel, getDB, listDivisions, listExpenses, listIssuers } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 import { csvResponse } from "$lib/server/csv";
+import { todayJst } from "$lib/server/today";
 
 // 一覧（expenses/+page.server.ts）と同じフィルタ条件を適用してCSVを返す。
 export const GET: RequestHandler = async ({ platform, url, locals }) => {
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ platform, url, locals }) => {
   // 一覧と同じ: iss=会社（閲覧可能な会社のみ有効）／ m=計上月（YYYY-MM）
   const issParam = url.searchParams.get("iss") ?? "";
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const mParam = url.searchParams.get("m") ?? "";
   const month = /^\d{4}-\d{2}$/.test(mParam) ? mParam : today.slice(0, 7);
 

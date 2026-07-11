@@ -2,6 +2,7 @@ import type { PageServerLoad } from "./$types";
 import { cashFlowForMonth, getDB, listDocuments, listIssuers, listTargets, sumTargets } from "$lib/server/db";
 import type { DocumentType } from "@invoice-harness/shared";
 import { allowedIssuerIds } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
@@ -38,7 +39,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const issuerId = issuers.some((i) => i.id === issParam) ? issParam : "";
   const docs = issuerId ? all.filter((d) => d.issuer_id === issuerId) : all;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const mParam = url.searchParams.get("m") ?? "";
   const month = /^\d{4}-\d{2}$/.test(mParam) ? mParam : today.slice(0, 7);
   const [y, mo] = month.split("-").map(Number);

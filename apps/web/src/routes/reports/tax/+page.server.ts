@@ -2,11 +2,12 @@ import type { PageServerLoad } from "./$types";
 import { applyRounding, fiscalYearByEndYear, fiscalYearForDate } from "@invoice-harness/shared";
 import { getDB, getSettings } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
+import { todayJst } from "$lib/server/today";
 
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const db = getDB(platform);
   const settings = await getSettings(db);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const current = fiscalYearForDate(today, settings.fiscal_month);
   const endYear = Number(url.searchParams.get("fy")) || current.endYear;
   const fy = fiscalYearByEndYear(endYear, settings.fiscal_month);

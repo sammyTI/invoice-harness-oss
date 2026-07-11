@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { getDB, listProjects } from "$lib/server/db";
 import { allowedIssuerIds, canAccessIssuer } from "$lib/server/access";
 import { csvResponse } from "$lib/server/csv";
+import { todayJst } from "$lib/server/today";
 
 // 状態キー→日本語ラベル（一覧の表示と揃える）
 const STATUS_LABEL: Record<string, string> = {
@@ -47,6 +48,6 @@ export const GET: RequestHandler = async ({ platform, url, locals }) => {
     p.profit,
   ]);
 
-  const filename = `案件_${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `案件_${todayJst()}.csv`;
   return csvResponse(filename, header, body);
 };

@@ -2,6 +2,7 @@ import type { PageServerLoad, Actions } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
 import { cashFlowForMonth, countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
+import { todayJst, thisMonthJst } from "$lib/server/today";
 
 const REVENUE_TYPES = new Set(["invoice"]);
 const EXPENSE_TYPES = new Set(["order", "payment_notice"]);
@@ -42,7 +43,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const fiscalMonthFor = selected?.fiscal_month ?? (issuers.length === 1 ? issuers[0]?.fiscal_month : null) ?? settings.fiscal_month;
   const effFiscalMonth = calendarMode ? 12 : fiscalMonthFor;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const fyParam = Number(url.searchParams.get("fy"));
   const current = fiscalYearForDate(today, effFiscalMonth);
   const endYear = Number.isFinite(fyParam) && fyParam > 0 ? fyParam : current.endYear;
@@ -122,7 +123,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const hasDivTargets = divisions.some((v) => v.target > 0);
 
   // ダッシュボードハブ（ナビカードのミニ統計）。閲覧可能スコープ（allDocs）全体で算出。
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = thisMonthJst();
   const clientsList = await listClients(db);
   const projectsList = await listProjects(db);
   const monthAccrual = allDocs

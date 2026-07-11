@@ -1,11 +1,12 @@
 import type { RequestHandler } from "./$types";
 import {
+  clientCategoryIdMap,
   clientCategoryNameMap,
-  getClientCategoryIds,
   getDB,
   listClients,
 } from "$lib/server/db";
 import { csvResponse } from "$lib/server/csv";
+import { todayJst } from "$lib/server/today";
 
 // 一覧（clients/+page.server.ts）と同じフィルタ条件を適用してCSVを返す。
 export const GET: RequestHandler = async ({ platform, url }) => {
@@ -18,11 +19,8 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const all = await listClients(db);
   const catMap = await clientCategoryNameMap(db); // client_id → 区分名[]
 
-  // 区分IDでの絞り込み用に client_id→区分ID配列 のマップを構築（一覧と同じ）
-  const catIdMap: Record<string, string[]> = {};
-  if (cat) {
-    for (const c of all) catIdMap[c.id] = await getClientCategoryIds(db, c.id);
-  }
+  // 区分IDでの絞り込み用に client_id→区分ID配列 のマップを1クエリで構築（一覧と同じ）
+  const catIdMap = cat ? await clientCategoryIdMap(db) : {};
 
   const ql = q.toLowerCase();
   const clients = all.filter((c) => {
@@ -46,6 +44,6 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     c.email,
   ]);
 
-  const filename = `取引先_${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `取引先_${todayJst()}.csv`;
   return csvResponse(filename, header, body);
 };

@@ -2,6 +2,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { isValidRegistrationNumber } from "@invoice-harness/shared";
 import {
+  clientCategoryIdMap,
   clientCategoryNameMap,
   createClientCategory,
   deleteClientCategory,
@@ -42,11 +43,8 @@ export const load: PageServerLoad = async ({ platform, url }) => {
   const catMap = await clientCategoryNameMap(db);
 
   // 区分IDでの絞り込みには client_id→区分ID配列 のマップが必要。
-  // catMap は区分「名」ベースなので、リンクテーブルからIDベースのマップを別途構築する。
-  const catIdMap: Record<string, string[]> = {};
-  if (cat) {
-    for (const c of all) catIdMap[c.id] = await getClientCategoryIds(db, c.id);
-  }
+  // catMap は区分「名」ベースなので、リンクテーブルからIDベースのマップを1クエリで構築する。
+  const catIdMap = cat ? await clientCategoryIdMap(db) : {};
 
   const ql = q.toLowerCase();
   const clients = all.filter((c) => {

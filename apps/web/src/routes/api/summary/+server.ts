@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { fiscalYearByEndYear, fiscalYearForDate } from "@invoice-harness/shared";
 import { effectiveDivision, getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
+import { todayJst } from "$lib/server/today";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     ? 12
     : (issuer?.fiscal_month ?? (issuers.length === 1 ? issuers[0]?.fiscal_month : null) ?? settings.fiscal_month);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
   const current = fiscalYearForDate(today, effFiscalMonth);
   const endYear = Number(url.searchParams.get("fy")) || current.endYear;
   const fy = fiscalYearByEndYear(endYear, effFiscalMonth);

@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { getDB, getDocument, markPaid } from "$lib/server/db";
+import { todayJst } from "$lib/server/today";
 
 export const POST: RequestHandler = async ({ platform, params, request }) => {
   const db = getDB(platform);
@@ -10,6 +11,6 @@ export const POST: RequestHandler = async ({ platform, params, request }) => {
   const amount = Number(body.amount) || full.balance || full.totals.total;
   if (amount <= 0) return json({ error: "invalid amount" }, { status: 400 });
   const fee = Math.max(0, Number(body.fee) || 0);
-  await markPaid(db, params.id, body.paid_date || new Date().toISOString().slice(0, 10), amount, body.method ?? null, "api", body.reference ?? null, fee);
+  await markPaid(db, params.id, body.paid_date || todayJst(), amount, body.method ?? null, "api", body.reference ?? null, fee);
   return json({ ok: true });
 };
