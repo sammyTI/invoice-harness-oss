@@ -45,12 +45,12 @@
   <div class="kpi card accent-rev">
     <span class="lab">{cash ? "入金額合計（税込）" : "請求額合計（税込）"}</span>
     <span class="val num">{formatYen(data.kpi.revTotal)}</span>
-    <span class="sub num">入金済 {formatYen(data.kpi.revPaid)} ／ 入金待ち {formatYen(data.kpi.revUnpaid)}</span>
+    {#if !cash}<span class="sub num">入金済 {formatYen(data.kpi.revPaid)} ／ 入金待ち {formatYen(data.kpi.revUnpaid)}</span>{/if}
   </div>
   <div class="kpi card accent-exp">
     <span class="lab">支払額合計（税込）</span>
     <span class="val num">{formatYen(data.kpi.expTotal)}</span>
-    <span class="sub num">支払済 {formatYen(data.kpi.expPaid)} ／ 支払待ち {formatYen(data.kpi.expUnpaid)}</span>
+    {#if !cash}<span class="sub num">支払済 {formatYen(data.kpi.expPaid)} ／ 支払待ち {formatYen(data.kpi.expUnpaid)}</span>{/if}
   </div>
   <div class="kpi card accent-profit">
     <span class="lab">{cash ? "収支（入金 − 支払）" : "粗利（請求 − 支払）"}</span>
@@ -79,7 +79,7 @@
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>請求先・件名</th><th class="r">金額(税込)</th>{#if cash}<th>入金日</th><th>請求日</th>{:else}<th>請求日</th><th>入金日</th>{/if}<th>状態</th></tr></thead>
+          <thead><tr><th>請求先・件名</th><th class="r">{cash ? "入金額" : "金額(税込)"}</th>{#if cash}<th>入金日</th><th>請求日</th>{:else}<th>請求日</th><th>入金日</th>{/if}<th>状態</th></tr></thead>
           <tbody>
             {#each data.invoices as d}
               <tr>
@@ -115,7 +115,7 @@
     {:else}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>支払先・件名</th><th class="r">金額(税込)</th>{#if cash}<th>支払日</th><th>支払期日</th>{:else}<th>支払期日</th><th>支払日</th>{/if}<th>状態</th></tr></thead>
+          <thead><tr><th>支払先・件名</th><th class="r">{cash ? "支払額" : "金額(税込)"}</th>{#if cash}<th>支払日</th><th>支払期日</th>{:else}<th>支払期日</th><th>支払日</th>{/if}<th>状態</th></tr></thead>
           <tbody>
             {#each data.payments as d}
               <tr>

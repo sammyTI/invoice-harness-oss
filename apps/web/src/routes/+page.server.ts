@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { fiscalYearByEndYear, fiscalYearForDate, fiscalMonths } from "@invoice-harness/shared";
-import { countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
+import { cashFlowForMonth, countActiveMembers, effectiveDivision, getDB, getMailConfig, getSettings, isChecklistDismissed, listClients, listDivisions, listDocuments, listIssuers, listProjects, listTargets, setChecklistDismissed, sumTargets } from "$lib/server/db";
 import { allowedIssuerIds } from "$lib/server/access";
 
 const REVENUE_TYPES = new Set(["invoice"]);
@@ -128,9 +128,12 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const monthAccrual = allDocs
     .filter((d) => REVENUE_TYPES.has(d.type) && d.status !== "canceled" && d.issue_date.startsWith(thisMonth))
     .reduce((a, d) => a + d.total, 0);
-  const monthCash = allDocs
-    .filter((d) => REVENUE_TYPES.has(d.type) && d.status !== "canceled" && d.paid_at?.startsWith(thisMonth))
-    .reduce((a, d) => a + d.total, 0);
+  // 入出金ベースは payments（paid_date × amount）基準。当月に発生した入金額の合計（invoice分のみ）。
+  // 部分入金を全額入金月にまとめず、発生月に正しく計上する。
+  const cashThisMonth = await cashFlowForMonth(db, thisMonth);
+  const monthCash = cashThisMonth.invoices
+    .filter((r) => (allowed ? allowed.includes(r.issuer_id) : true))
+    .reduce((a, r) => a + (r.month_amount ?? 0), 0);
   const hub = {
     clients: clientsList.length,
     activeProjects: projectsList.filter((p) => p.status === "active").length,

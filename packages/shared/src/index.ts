@@ -177,19 +177,27 @@ export interface FiscalYear {
   startYear: number;
   startMonth: number;
   start: string; // YYYY-MM-01
-  end: string; // YYYY-MM-31 (文字列比較用の上限)
+  end: string; // YYYY-MM-DD 実月末日（文字列比較用の上限）
   label: string; // "2026年3月期"
+}
+
+// 指定年月の実際の月末日（1-31）。うるう年対応。引数からのみ決定する（Date.now は使わない）。
+function lastDayOfMonth(year: number, month: number): number {
+  // Date(y, m, 0) は「m月の0日目」＝前月末日を指すので、month をそのまま渡すと当月末日になる。
+  return new Date(year, month, 0).getDate();
 }
 
 export function fiscalYearByEndYear(endYear: number, fiscalMonth: number): FiscalYear {
   const startMonth = fiscalMonth === 12 ? 1 : fiscalMonth + 1;
   const startYear = fiscalMonth === 12 ? endYear : endYear - 1;
+  const endDay = lastDayOfMonth(endYear, fiscalMonth);
   return {
     endYear,
     startYear,
     startMonth,
     start: `${startYear}-${String(startMonth).padStart(2, "0")}-01`,
-    end: `${endYear}-${String(fiscalMonth).padStart(2, "0")}-31`,
+    // 実在しない日付（例 2026-02-31）を返さないよう実月末日を使う
+    end: `${endYear}-${String(fiscalMonth).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
     label: `${endYear}年${fiscalMonth}月期`,
   };
 }
@@ -237,9 +245,12 @@ export interface Totals {
 }
 
 export function applyRounding(value: number, mode: Rounding): number {
-  if (mode === "ceil") return Math.ceil(value);
-  if (mode === "round") return Math.round(value);
-  return Math.floor(value);
+  // 割引などの負数は絶対値を丸めてから符号を戻す（sign-aware）。
+  // 従来の Math.floor(-150.5)=-151 は正数と逆方向になり、割引額が過大になるため。
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  const r = mode === "ceil" ? Math.ceil(abs) : mode === "round" ? Math.round(abs) : Math.floor(abs);
+  return sign * r;
 }
 
 export function lineAmount(quantity: number, unitPrice: number, mode: Rounding = "floor"): number {
@@ -357,5 +368,9 @@ export function stampDuty(amount: number): number {
   if (amount <= 30_000_000) return 6_000;
   if (amount <= 50_000_000) return 10_000;
   if (amount <= 100_000_000) return 20_000;
-  return 0; // 1億円超は階層が続くため別途確認
+  if (amount <= 200_000_000) return 40_000;
+  if (amount <= 300_000_000) return 60_000;
+  if (amount <= 500_000_000) return 100_000;
+  if (amount <= 1_000_000_000) return 150_000;
+  return 200_000; // 10億円超
 }

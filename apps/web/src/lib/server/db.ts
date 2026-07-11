@@ -486,19 +486,32 @@ export async function markSent(db: D1Database, id: string, when: string, actor =
   await appendAudit(db, { actor, action: "send", document_id: id, summary: "送付済みに更新" });
 }
 
-/** 入金状況を再計算（合計到達で入金済、未達なら送付済/発行済へ戻す）。 */
+/** 入金状況を再計算（差引請求額 payable 到達で入金済、未達なら送付済/発行済へ戻す）。 */
 async function recomputePaid(db: D1Database, id: string): Promise<void> {
   const d = await db
-    .prepare("SELECT total, sent_at, locked FROM documents WHERE id = ?1")
+    .prepare("SELECT sent_at, locked FROM documents WHERE id = ?1")
     .bind(id)
-    .first<{ total: number; sent_at: string | null; locked: number }>();
+    .first<{ sent_at: string | null; locked: number }>();
   if (!d) return;
+  // 源泉徴収ありの帳票は実際の入金額が payable = total - withholding になるため、
+  // documents.total ではなく設定＋明細から算出した payable と比較する。
+  // 呼び出しは入金記録時のみのため、明細・設定の追加取得は許容する。
+  const settings = await getSettings(db);
+  const { results } = await db
+    .prepare("SELECT quantity, unit_price, tax_rate FROM document_lines WHERE document_id = ?1")
+    .bind(id)
+    .all<{ quantity: number; unit_price: number; tax_rate: number }>();
+  const totals = computeTotals(
+    (results ?? []).map((l) => ({ quantity: l.quantity, unit_price: l.unit_price, tax_rate: l.tax_rate })),
+    settings
+  );
+  const target = settings.withholding === "standard" ? totals.payable : totals.total;
   const p = await db
     .prepare("SELECT COALESCE(SUM(amount),0) AS s, MAX(paid_date) AS last FROM payments WHERE document_id = ?1")
     .bind(id)
     .first<{ s: number; last: string | null }>();
   const sum = p?.s ?? 0;
-  const fullyPaid = d.total > 0 && sum >= d.total;
+  const fullyPaid = target > 0 && sum >= target;
   const status = fullyPaid ? "paid" : d.sent_at ? "sent" : d.locked ? "issued" : "draft";
   await db
     .prepare("UPDATE documents SET status = ?2, paid_at = ?3 WHERE id = ?1")
@@ -535,6 +548,77 @@ export async function deletePayment(db: D1Database, paymentId: string, actor = "
   await db.prepare("DELETE FROM payments WHERE id = ?1").bind(paymentId).run();
   await recomputePaid(db, row.document_id);
   await appendAudit(db, { actor, action: "pay", document_id: row.document_id, summary: `入金 ${row.amount} を取消` });
+}
+
+// ---------- 入出金ベース集計（payments テーブル基準） ----------
+// paid_at（全額入金時にのみ立つ）× documents.total では、部分入金を無視して
+// 全額入金月にまとめて計上してしまう。実態は payments（paid_date × amount）で見る。
+
+/** 入出金ベースの1帳票行（その月の入金/支払額を合算した1行）。 */
+export interface CashFlowRow {
+  id: string;
+  type: DocumentType;
+  number: string;
+  status: string;
+  issue_date: string;
+  due_date: string | null;
+  subject: string | null;
+  client_name: string;
+  issuer_id: string;
+  division_name: string | null;
+  project_name: string | null;
+  project_division_name: string | null;
+  /** その月に発生した入金/支払の最終日（YYYY-MM-DD）。 */
+  paid_on: string;
+  /** その月の入金/支払額の合算（同一帳票の複数入金は合算）。 */
+  month_amount: number;
+}
+
+export interface CashFlow {
+  invoices: CashFlowRow[]; // 入金（紐づく帳票が invoice）
+  payments: CashFlowRow[]; // 支払（紐づく帳票が order / payment_notice）
+  incoming: number; // 当月入金額合計
+  outgoing: number; // 当月支払額合計
+}
+
+/**
+ * 指定暦年月（YYYY-MM）の入出金を payments 基準で集計する。
+ * paid_date が当月の入金明細を、取消でない帳票について集計し、
+ * 同一帳票の複数入金は合算して1行にまとめる。
+ * issuerId 指定時はその会社（発行元）の帳票のみに絞る。
+ */
+export async function cashFlowForMonth(db: D1Database, ym: string, issuerId?: string): Promise<CashFlow> {
+  const binds: string[] = [ym];
+  let issuerCond = "";
+  if (issuerId) {
+    issuerCond = " AND d.issuer_id = ?2";
+    binds.push(issuerId);
+  }
+  const { results } = await db
+    .prepare(
+      `SELECT d.id, d.type, d.number, d.status, d.issue_date, d.due_date, d.subject,
+              d.issuer_id, c.name AS client_name,
+              dv.name AS division_name, p.name AS project_name, dv2.name AS project_division_name,
+              SUM(pm.amount) AS month_amount, MAX(pm.paid_date) AS paid_on
+       FROM payments pm
+       JOIN documents d ON d.id = pm.document_id
+       JOIN clients c ON c.id = d.client_id
+       LEFT JOIN divisions dv ON dv.id = d.division_id
+       LEFT JOIN projects p ON p.id = d.project_id
+       LEFT JOIN divisions dv2 ON dv2.id = p.division_id
+       WHERE pm.paid_date LIKE ?1 || '%'
+         AND d.status != 'canceled'${issuerCond}
+       GROUP BY d.id
+       ORDER BY paid_on DESC, d.created_at DESC`
+    )
+    .bind(...binds)
+    .all<CashFlowRow>();
+  const rows = results ?? [];
+  const invoices = rows.filter((r) => r.type === "invoice");
+  const payments = rows.filter((r) => r.type === "order" || r.type === "payment_notice");
+  const incoming = invoices.reduce((a, r) => a + (r.month_amount ?? 0), 0);
+  const outgoing = payments.reduce((a, r) => a + (r.month_amount ?? 0), 0);
+  return { invoices, payments, incoming, outgoing };
 }
 
 // ---------- 税率マスタ（適用開始日つき） ----------

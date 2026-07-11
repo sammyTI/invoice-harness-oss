@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { fiscalYearByEndYear, fiscalYearForDate } from "@invoice-harness/shared";
-import { getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
+import { effectiveDivision, getDB, getSettings, listDocuments, listIssuers } from "$lib/server/db";
 
 const REVENUE = new Set(["invoice"]);
 const EXPENSE = new Set(["order", "payment_notice"]);
@@ -44,17 +44,19 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     return { company: i.name, revenue: rev, expense: exp, profit: rev - exp };
   }).filter((c) => c.revenue || c.expense);
 
-  const divMap = new Map<string, { revenue: number; expense: number }>();
+  // 実効区分（帳票の区分が未設定ならプロジェクトの区分）の id をキーに集計する。
+  // 名前キーだと同名部門が会社を跨いだとき合算されてしまうため、id で分離し名前は表示用に持つ。
+  const divMap = new Map<string, { name: string; revenue: number; expense: number }>();
   for (const d of inFy) {
     if (!REVENUE.has(d.type) && !EXPENSE.has(d.type)) continue;
-    // 実効区分（帳票の区分が未設定ならプロジェクトの区分にフォールバック）
-    const k = d.division_name ?? d.project_division_name ?? "未設定";
-    const e = divMap.get(k) ?? { revenue: 0, expense: 0 };
+    const eff = effectiveDivision(d);
+    const k = eff.id ?? "__none__";
+    const e = divMap.get(k) ?? { name: eff.name ?? "未設定", revenue: 0, expense: 0 };
     if (REVENUE.has(d.type)) e.revenue += d.total;
     if (EXPENSE.has(d.type)) e.expense += d.total;
     divMap.set(k, e);
   }
-  const byDivision = [...divMap.entries()].map(([name, v]) => ({ division: name, ...v, profit: v.revenue - v.expense }));
+  const byDivision = [...divMap.values()].map((v) => ({ division: v.name, revenue: v.revenue, expense: v.expense, profit: v.revenue - v.expense }));
 
   return json({
     fiscal_year: calendarMode ? `${fy.endYear}年（暦年・全社合算）` : fy.label,

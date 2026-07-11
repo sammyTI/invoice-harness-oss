@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyRounding,
   computeTotals,
   DEFAULT_SETTINGS,
   fiscalMonths,
+  fiscalYearByEndYear,
   fiscalYearForDate,
   formatDate,
   isValidRegistrationNumber,
+  lineAmount,
   stampDuty,
   type Settings,
 } from "./index";
@@ -43,6 +46,24 @@ describe("computeTotals", () => {
   });
 });
 
+describe("applyRounding（符号付き）", () => {
+  // 割引などの負数は絶対値を丸めて符号を戻す（floor(-150.5)=-151 のような逆方向を防ぐ）
+  it("正数は従来どおり", () => {
+    expect(applyRounding(150.5, "floor")).toBe(150);
+    expect(applyRounding(150.5, "ceil")).toBe(151);
+    expect(applyRounding(150.5, "round")).toBe(151);
+  });
+  it("負数は絶対値基準で丸める", () => {
+    expect(applyRounding(-150.5, "floor")).toBe(-150); // 従来の Math.floor は -151（過大割引）
+    expect(applyRounding(-150.5, "ceil")).toBe(-151);
+    expect(applyRounding(-150.9, "round")).toBe(-151);
+  });
+  it("割引行の金額（数量×負単価）が正数と対称", () => {
+    expect(lineAmount(1, -150.5, "floor")).toBe(-150);
+    expect(lineAmount(1, 150.5, "floor")).toBe(150);
+  });
+});
+
 describe("会計年度", () => {
   it("3月決算: 6月は翌期", () => {
     const fy = fiscalYearForDate("2026-06-18", 3);
@@ -59,6 +80,12 @@ describe("会計年度", () => {
     expect(fiscalMonths(fy)[0].ym).toBe("2026-01");
     expect(fiscalMonths(fy)).toHaveLength(12);
   });
+  it("end は実在する月末日（2月決算=非うるう年28日）", () => {
+    expect(fiscalYearByEndYear(2026, 2).end).toBe("2026-02-28"); // 実在しない 2026-02-31 を返さない
+    expect(fiscalYearByEndYear(2028, 2).end).toBe("2028-02-29"); // うるう年
+    expect(fiscalYearByEndYear(2027, 3).end).toBe("2027-03-31");
+    expect(fiscalYearByEndYear(2026, 4).end).toBe("2026-04-30"); // 30日月
+  });
 });
 
 describe("収入印紙", () => {
@@ -68,6 +95,13 @@ describe("収入印紙", () => {
     expect(stampDuty(1_000_000)).toBe(200);
   });
   it("100万超は400円", () => expect(stampDuty(1_000_001)).toBe(400));
+  it("1億超の階層（第17号文書）", () => {
+    expect(stampDuty(150_000_000)).toBe(40_000); // 〜2億
+    expect(stampDuty(250_000_000)).toBe(60_000); // 〜3億
+    expect(stampDuty(400_000_000)).toBe(100_000); // 〜5億
+    expect(stampDuty(800_000_000)).toBe(150_000); // 〜10億
+    expect(stampDuty(2_000_000_000)).toBe(200_000); // 10億超
+  });
 });
 
 describe("ユーティリティ", () => {
