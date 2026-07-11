@@ -217,10 +217,13 @@
   <div class="card pl" id="divisions">
     <div class="pl-head">
       <h2>部門別損益（{data.fyLabel}）</h2>
-      <div class="pl-acts">
-        <a class="btn btn-quiet btn-sm" href="/settings/targets">目標を設定</a>
-        <a class="btn btn-quiet btn-sm" href="/settings/divisions">区分を編集</a>
-      </div>
+      {#if isOwner}
+        <!-- /settings系はownerのみ入れる。押せそうで押せないボタンを出さない。 -->
+        <div class="pl-acts">
+          <a class="btn btn-quiet btn-sm" href="/settings/targets">目標を設定</a>
+          <a class="btn btn-quiet btn-sm" href="/settings/divisions">区分を編集</a>
+        </div>
+      {/if}
     </div>
     <div class="dtable">
       <div class="drow dhead" class:witht={data.hasDivTargets}><span>区分</span><span class="r">売上</span><span class="r">費用</span><span class="r">利益</span>{#if data.hasDivTargets}<span class="r">目標</span><span class="r">達成率</span>{/if}<span class="dbarcell"></span></div>

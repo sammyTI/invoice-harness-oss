@@ -26,10 +26,17 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
   const projectId = url.searchParams.get("project");
   const project = projectId ? await getProject(db, projectId) : null;
   const settings = await getSettings(db);
+  // 案件は「顧客→プロジェクト」連動のためクライアントに渡すが、
+  // アクセス外の会社の案件が選択肢に出るバグを防ぐため allowedIssuerIds でフィルタ（projectsページ実装を踏襲）。
+  // クライアント側で必要なのは id/name/client_id/issuer_id/division_id のみ。
+  const projects = (await listProjects(db))
+    .filter((pr) => pr.status !== "done")
+    .filter((pr) => !pr.issuer_id || canAccessIssuer(allowed, pr.issuer_id))
+    .map((pr) => ({ id: pr.id, name: pr.name, client_id: pr.client_id, issuer_id: pr.issuer_id, division_id: pr.division_id }));
   return {
     type,
     project: project ? { id: project.id, name: project.name, client_id: project.client_id, issuer_id: project.issuer_id, division_id: project.division_id } : null,
-    projects: (await listProjects(db)).filter((pr) => pr.status !== "done"),
+    projects,
     label: DOCUMENT_LABELS[type],
     issuers: (await listIssuers(db)).filter((i) => canAccessIssuer(allowed, i.id)),
     clients: await listClients(db),
@@ -122,6 +129,13 @@ export const actions: Actions = {
         status: "active",
         start_date: issue_date,
       });
+    } else if (project_id) {
+      // 既存プロジェクト選択時の誤請求防止（最終防衛線）:
+      // 選ばれた案件の顧客と送信された取引先が食い違っていたら弾く。
+      const prj = await getProject(db, project_id);
+      if (prj && prj.client_id !== client_id) {
+        return fail(400, { error: "選択したプロジェクトは別の顧客の案件です。取引先とプロジェクトを確認してください。" });
+      }
     }
 
     const settings = await getSettings(db);

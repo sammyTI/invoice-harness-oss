@@ -10,9 +10,25 @@
   let projectSel = data.project?.id ?? "";
   let clientSel = (data.project && !isCostType ? data.project.client_id : "") || data.clients[0]?.id || "__new__";
   let issuerId = data.project?.issuer_id || data.issuers[0]?.id || "";
+  let divisionSel = data.project?.division_id ?? "";
   // 選んだ会社の区分＋全社共通の区分だけ表示
   $: divs = data.divisions.filter((d) => !d.issuer_id || d.issuer_id === issuerId);
-  const presetDivision = data.project?.division_id ?? "";
+
+  // 顧客→プロジェクト連動（クライアント側リアクティブ）
+  // 選択中の取引先の案件のみ表示。取引先未選択/該当0件でも「＋ 新規」は常に出す（テンプレ側）。
+  $: projectOptions = data.projects.filter((pr) => pr.client_id === clientSel);
+  // 取引先を変えて、選択中の案件がその顧客のものでなくなったら選択をリセット（誤請求防止）。
+  $: if (clientSel && projectSel && projectSel !== "__new__" && !data.projects.some((pr) => pr.id === projectSel && pr.client_id === clientSel)) {
+    projectSel = "";
+  }
+  // プロジェクトを選んだら、その案件の発行元・計上区分を自動セット（手動変更は可能）。
+  function onProjectChange() {
+    const pr = data.projects.find((p) => p.id === projectSel);
+    if (pr) {
+      if (pr.issuer_id) issuerId = pr.issuer_id;
+      divisionSel = pr.division_id ?? "";
+    }
+  }
   let dirty = false;
   onMount(() => {
     const h = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -143,11 +159,7 @@
   <section class="section">
     <div class="section-head"><h2>基本情報</h2></div>
     <div class="grid2">
-      <div class="field"><span class="lab">発行元</span>
-        <select class="input" name="issuer_id" bind:value={issuerId} required>
-          {#each data.issuers as iss}<option value={iss.id}>{iss.name}</option>{/each}
-        </select>
-      </div>
+      <!-- ①取引先（顧客）→②プロジェクト→③発行元→④計上区分 の順（顧客起点のメンタルモデル） -->
       <div class="field"><span class="lab">{isCostType ? "支払先（外注先・仕入先）" : "取引先"}</span>
         <div class="clientrow">
           <select class="input" name="client_id" bind:value={clientSel} required>
@@ -162,26 +174,33 @@
           <input type="hidden" name="project_id" value={data.project.id} />
           <div class="prjfixed"><span class="prjchip">{data.project.name}</span><a class="mini" href={`/projects/${data.project.id}`}>案件へ</a></div>
         {:else}
-          <select class="input" name="project_id" bind:value={projectSel} required={data.requireProject}>
+          <select class="input" name="project_id" bind:value={projectSel} on:change={onProjectChange} required={data.requireProject}>
             <option value="">{data.requireProject ? "選択してください" : "（未割当）"}</option>
-            {#each data.projects as pr}<option value={pr.id}>{pr.name}（{pr.client_name}）</option>{/each}
+            <!-- 選んだ取引先の案件のみ表示（表示は案件名のみ・顧客名は括弧不要） -->
+            {#each projectOptions as pr}<option value={pr.id}>{pr.name}</option>{/each}
             <option value="__new__">＋ 新規プロジェクトを作る…</option>
           </select>
           {#if projectSel === "__new__"}
             <input class="input newprj" name="project_new_name" placeholder="新規プロジェクト名（案件名）" required />
           {/if}
+          <span class="hint">選んだ取引先の案件が表示されます</span>
         {/if}
       </div>
-      <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" bind:value={issueDate} required /></div>
-      <div class="field"><span class="lab">支払期限</span><input class="input" type="date" name="due_date" /></div>
+      <div class="field"><span class="lab">発行元</span>
+        <select class="input" name="issuer_id" bind:value={issuerId} required>
+          {#each data.issuers as iss}<option value={iss.id}>{iss.name}</option>{/each}
+        </select>
+      </div>
       {#if divs.length}
         <div class="field"><span class="lab">計上区分（部門）</span>
-          <select class="input" name="division_id">
+          <select class="input" name="division_id" bind:value={divisionSel}>
             <option value="">（未設定）</option>
-            {#each divs as dv}<option value={dv.id} selected={dv.id === presetDivision}>{dv.name}</option>{/each}
+            {#each divs as dv}<option value={dv.id}>{dv.name}</option>{/each}
           </select>
         </div>
       {/if}
+      <div class="field"><span class="lab">発行日</span><input class="input" type="date" name="issue_date" bind:value={issueDate} required /></div>
+      <div class="field"><span class="lab">支払期限</span><input class="input" type="date" name="due_date" /></div>
     </div>
 
     {#if clientSel === "__new__"}
@@ -304,4 +323,5 @@
   .mini { font-size: 12px; }
   .req { display: inline-block; margin-left: 6px; background: var(--red-soft); color: var(--red); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
   .newprj { margin-top: 8px; }
+  .hint { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
 </style>
