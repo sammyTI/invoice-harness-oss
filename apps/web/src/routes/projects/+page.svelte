@@ -119,7 +119,7 @@
   .head-acts { display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--ink-2); font-size: 13px; margin-top: -8px; }
   .searchbar { display: flex; gap: 8px; align-items: center; margin: 12px 0 14px; flex-wrap: wrap; }
-  .searchbar .fq { max-width: 280px; }
+  .searchbar .fq { max-width: 240px; }
   .searchbar .fsel { width: auto; font-size: 13px; }
   .pname { font-weight: 700; }
   .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }

@@ -96,8 +96,10 @@
 <style>
   .head-acts { display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--ink-2); font-size: 13px; margin: -8px 0 14px; }
-  .ops { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-  .ops form { margin: 0; }
+  /* tdをflexにするとtable-cellでなくなり行の縦整列が崩れるため、セルは素のまま中身をinlineで右寄せ */
+  .ops { white-space: nowrap; vertical-align: middle; }
+  .ops .mini { vertical-align: middle; }
+  .ops form { display: inline-block; margin: 0 0 0 8px; vertical-align: middle; }
   .mini { font-size: 13px; }
-  .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+  .del { background: var(--red-soft); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; vertical-align: middle; }
 </style>
