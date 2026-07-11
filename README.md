@@ -1,12 +1,12 @@
 # invoice-harness
 
-**Cloudflare 無料枠で動くセルフホスト請求書・会計ツール。Misoca 代替＋AI 操作対応。**
+**Cloudflare 無料枠で動くセルフホスト請求・経営管理ツール。Misoca 代替＋AI 操作対応。**
 見積・発注・納品・請求・領収・支払通知の 6 帳票の作成から、入金管理・部門別収支・損益計算書（PL）まで。データはすべて自分の Cloudflare アカウント内に置かれ、月額課金はありません。
 
 デモ: https://invoice-harness.pages.dev/
 ライセンス: MIT
 
-> _A self-hostable invoicing & accounting tool that runs entirely on the Cloudflare free tier. A Misoca alternative with AI (natural-language) operation via MCP. MIT licensed._
+> _A self-hostable invoicing & business-management tool that runs entirely on the Cloudflare free tier. A Misoca alternative with AI (natural-language) operation via MCP. MIT licensed._
 
 <!-- TODO: screenshot — ダッシュボード（収支一覧） docs/screenshots/dashboard.png -->
 
@@ -29,8 +29,8 @@
 - 会社 × 部門（計上区分）× 月の収支を一覧。**売上目標と達成率**を目標ラインで可視化
 - **月次入出金**（計上ベース／入出金ベースの切替）
 
-**会計・レポート (Accounting)**
-- 経費・給与を月次記録 → **損益計算書（PL）** を会社別・会計年度別に生成
+**経営管理・レポート (Management Reporting)**
+- 経費・給与を月次記録 → **損益計算書（PL）**（管理会計・概算。決算書の作成は対象外）を会社別・会計年度別に生成
 - 消費税集計表・売掛金年齢表
 - 入金記録（部分入金・複数回入金・決済手数料の差引）と、銀行明細 CSV 取込による入金消込
 
@@ -57,6 +57,15 @@
 **その他 (Others)**
 - 複数社・個人事業主（暦年決算）の両対応
 - 税率マスタ（適用開始日つき）。将来の税率変更に日付ベースで対応し、発行日に応じて作成画面の税率が切り替わる
+
+**税理士・会計ソフトとの連携 (Hand-off to Accountants)**
+
+決算・申告は税理士や会計ソフトの領分。invoice-harness は請求〜月次損益までを担い、その先へスムーズに引き継ぐことを設計思想としています。
+
+- **閲覧専用アカウント（viewer）** で税理士を招待。数字を見せながら作業を任せられる
+- **給与・経営数値の閲覧権限**をロールと独立に付与し、見せる相手を絞れる
+- **弥生 仕訳 CSV** をエクスポートし、会計ソフト側で決算・申告へ
+- **バックアップ／復元**で年度データを手元に保全
 
 <!-- TODO: screenshot — 請求書の作成画面 docs/screenshots/invoice-editor.png -->
 

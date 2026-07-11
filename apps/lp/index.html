@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>invoice-harness — 話しかけるだけで請求も会計も。完全無料のOSS請求・会計ツール</title>
-<meta name="description" content="invoice-harness は、AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・会計ツール。月額0円・Cloudflare無料枠で動くMITライセンスのOSS。データは自分のCloudflareアカウントの中に。">
-<meta property="og:title" content="invoice-harness — 話しかけるだけで請求も会計も。">
-<meta property="og:description" content="AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・会計ツール。月額0円・Cloudflare無料枠・MITライセンス。">
+<title>invoice-harness — 話しかけるだけで請求も経営管理も。完全無料のOSS請求・経営管理ツール</title>
+<meta name="description" content="invoice-harness は、AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・経営管理ツール。月額0円・Cloudflare無料枠で動くMITライセンスのOSS。データは自分のCloudflareアカウントの中に。">
+<meta property="og:title" content="invoice-harness — 話しかけるだけで請求も経営管理も。">
+<meta property="og:description" content="AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・経営管理ツール。月額0円・Cloudflare無料枠・MITライセンス。">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232e5bff'/%3E%3Cstop offset='1' stop-color='%2300b8a9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-size='15' font-weight='900' fill='white' text-anchor='middle'%3EIH%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -77,6 +77,7 @@ img{max-width:100%; display:block}
 .eyebrow{color:var(--jade); font-size:13px; font-weight:700; letter-spacing:.01em; margin-bottom:16px}
 .hero h1{font-size:clamp(34px,6vw,56px); line-height:1.18; white-space:pre-line}
 .hero-lead{color:rgba(255,255,255,.8); margin-top:20px; font-size:clamp(15px,2vw,17px); max-width:520px}
+.hero-scope{color:rgba(255,255,255,.5); font-size:12.5px; line-height:1.7; margin-top:14px; max-width:520px}
 .hero-cta{display:flex; flex-wrap:wrap; gap:12px; margin-top:28px}
 .hero-note{color:rgba(255,255,255,.5); font-size:12.5px; margin-top:16px}
 @media(max-width:860px){ .hero-grid{grid-template-columns:1fr; gap:44px} }
@@ -237,8 +238,9 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
     <div>
       <p class="eyebrow">オープンソース（MIT）・Cloudflare無料枠で動く</p>
       <h1>話しかけるだけで、
-請求も会計も。</h1>
-      <p class="hero-lead">invoice-harness は、AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・会計ツールです。月額 0円。データはあなたの Cloudflare アカウントの中に。</p>
+請求も経営管理も。</h1>
+      <p class="hero-lead">invoice-harness は、AIに「請求書つくって」と頼める、完全無料のセルフホスト請求・経営管理ツールです。月額 0円。データはあなたの Cloudflare アカウントの中に。</p>
+      <p class="hero-scope">決算・申告は税理士や会計ソフトの領分。invoice-harness はその手前の実務（請求・入金・経費・月次の損益）を全部持ち、弥生仕訳CSVと閲覧専用アカウントでスムーズに引き継ぎます。</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="https://invoice-harness.pages.dev/" target="_blank" rel="noopener">デモを触ってみる</a>
         <a class="btn btn-ghost-white" href="#setup">導入方法を見る ↓</a>
@@ -277,7 +279,7 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
         <div class="ic">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2e5bff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg>
         </div>
-        <h3>自然言語で会計</h3>
+        <h3>自然言語で経理</h3>
         <p>Claude や Cursor などの AI から「A社に請求書を発行して」「先月の売上は？」と話すだけ。発行・送付・入金記録・集計まで会話で完結します（MCP対応）。もちろん画面からの操作も。</p>
       </div>
       <div class="card">
@@ -312,7 +314,7 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
         </tbody>
       </table>
     </div>
-    <p class="note">※各社公表の一般的な価格帯。invoice-harness は Cloudflare 無料枠内での運用を想定（超過時は Cloudflare の従量課金）。</p>
+    <p class="note">※各社公表の一般的な価格帯。invoice-harness は Cloudflare 無料枠内での運用を想定（超過時は Cloudflare の従量課金）。なお invoice-harness は決算書作成（複式簿記）ではなく請求〜月次損益までを担います。</p>
   </div>
 </section>
 
@@ -472,8 +474,12 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
         <p>導入はコマンド1行＋質問に答えるだけです。日々の利用は普通のWebアプリと同じで、初期設定はウィザードが案内します。</p>
       </details>
       <details>
+        <summary>freee や マネーフォワードの代わりになりますか？</summary>
+        <p>請求書発行・入金管理・経費と月次の損益（管理会計）は代わりになります。複式簿記・決算書の作成（財務会計）は対象外で、弥生仕訳CSVエクスポートと税理士向けの閲覧専用アカウントで会計ソフト・税理士に引き継ぐ設計です。</p>
+      </details>
+      <details>
         <summary>法令面の対応は？</summary>
-        <p>インボイス制度（適格請求書発行事業者番号・税率別内訳）、源泉徴収、収入印紙の自動判定に対応しています。申告・決算の最終確認は税理士にご相談ください。</p>
+        <p>インボイス制度（適格請求書発行事業者番号・税率別内訳）、源泉徴収、収入印紙の自動判定に対応しています。複式簿記・決算書作成は対象外です。申告・決算の最終確認は税理士にご相談ください。</p>
       </details>
     </div>
   </div>
@@ -482,7 +488,7 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
 <!-- 9. FINAL CTA -->
 <section class="section final night">
   <div class="wrap">
-    <h2 class="h2-bar">月額 0円の請求・会計を、5分ではじめる</h2>
+    <h2 class="h2-bar">月額 0円の請求・経営管理を、5分ではじめる</h2>
     <div class="code" id="code-final"><button class="copybtn" data-copy="npm create invoice-harness@latest">コピー</button>npm create invoice-harness@latest</div>
     <div class="final-links"><a href="https://github.com/sammyTI/invoice-harness-oss" target="_blank" rel="noopener">GitHubでソースを見る</a></div>
   </div>
