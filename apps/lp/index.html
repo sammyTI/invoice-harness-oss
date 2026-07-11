@@ -274,7 +274,7 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2e5bff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg>
         </div>
         <h3>自然言語で会計</h3>
-        <p>Claude などの AI から「A社に請求書を発行して」「先月の売上は？」と話すだけ。発行・送付・入金記録・集計まで会話で完結します（MCP対応）。もちろん画面からの操作も。</p>
+        <p>Claude や Cursor などの AI から「A社に請求書を発行して」「先月の売上は？」と話すだけ。発行・送付・入金記録・集計まで会話で完結します（MCP対応）。もちろん画面からの操作も。</p>
       </div>
       <div class="card">
         <div class="ic">
@@ -405,21 +405,47 @@ details p{color:var(--muted); font-size:14.5px; padding:0 0 22px}
     <h2 class="h2-bar">AIとつなぐ（MCP）</h2>
     <div class="mcp">
       <div>
-        <p>セットアップ時に接続コマンドが自動発行されます。Claude に登録すれば、こう頼めます:</p>
+        <p>MCP（Model Context Protocol）対応のAIツールならどれでもつながります。Claude、Cursor、Cline、Gemini CLI、VS Code など。各ツールのMCP設定ファイルに右のJSONを貼るだけです。</p>
         <div class="chips">
+          <span class="chip">Claude</span>
+          <span class="chip">Cursor</span>
+          <span class="chip">Cline</span>
+          <span class="chip">Gemini CLI</span>
+          <span class="chip">VS Code</span>
+        </div>
+        <div class="chips" style="margin-top:14px">
           <span class="chip">先月の売上を集計して</span>
           <span class="chip">A社に請求書を発行して</span>
           <span class="chip">未入金の一覧を出して</span>
           <span class="chip">今月のPLを見せて</span>
         </div>
       </div>
-      <div class="code" id="code-mcp"><button class="copybtn" data-copy="claude mcp add invoice-harness \
-  --env IH_API_URL=https://あなたの.pages.dev \
-  --env IH_API_TOKEN=（設定▸API/連携で発行） \
-  -- npx @invoice-harness/mcp-server">コピー</button>claude mcp add invoice-harness \
-  --env IH_API_URL=https://あなたの.pages.dev \
-  --env IH_API_TOKEN=（設定▸API/連携で発行） \
-  -- npx @invoice-harness/mcp-server</div>
+      <div>
+        <div class="code" id="code-mcp"><button class="copybtn" data-copy='{
+  &quot;mcpServers&quot;: {
+    &quot;invoice-harness&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@invoice-harness/mcp-server&quot;],
+      &quot;env&quot;: {
+        &quot;IH_API_URL&quot;: &quot;https://あなたの.pages.dev&quot;,
+        &quot;IH_API_TOKEN&quot;: &quot;（設定 ▸ API/連携で発行）&quot;
+      }
+    }
+  }
+}'>コピー</button>{
+  "mcpServers": {
+    "invoice-harness": {
+      "command": "npx",
+      "args": ["-y", "@invoice-harness/mcp-server"],
+      "env": {
+        "IH_API_URL": "https://あなたの.pages.dev",
+        "IH_API_TOKEN": "（設定 ▸ API/連携で発行）"
+      }
+    }
+  }
+}</div>
+        <p style="color:var(--muted); font-size:12px; margin-top:12px">Claude Code なら <code>claude mcp add</code> の1コマンド。各ツールのMCP設定ファイルに上記を貼るだけです。</p>
+      </div>
     </div>
   </div>
 </section>

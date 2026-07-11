@@ -252,13 +252,27 @@ try {
   const tokenHash = createHash("sha256").update(apiToken).digest("hex");
   const tokId = "tok_" + randomBytes(6).toString("hex");
   execSync(wr(`d1 execute ${d1Name} --remote --command "INSERT INTO api_tokens (id,name,token_hash,created_at) VALUES ('${tokId}','setup-mcp','${tokenHash}','${new Date().toISOString()}')"`), { cwd: root, stdio: ["inherit", "pipe", "pipe"] });
-  const mcpPath = resolve(root, "packages/mcp-server/dist/index.js");
+  const mcpJson =
+    `{\n` +
+    `    "mcpServers": {\n` +
+    `      "invoice-harness": {\n` +
+    `        "command": "npx",\n` +
+    `        "args": ["-y", "@invoice-harness/mcp-server"],\n` +
+    `        "env": {\n` +
+    `          "IH_API_URL": "${url}",\n` +
+    `          "IH_API_TOKEN": "${apiToken}"\n` +
+    `        }\n` +
+    `      }\n` +
+    `    }\n` +
+    `  }`;
   mcpBlock =
-    `${C.bold}AI（Claude）から自然言語で操作する（MCP）${C.reset}\n` +
-    `  Claude Code をお使いなら、次の1行をそのまま実行（URL・トークン設定済み）:\n\n` +
-    `  ${C.cyan}claude mcp add invoice-harness --env IH_API_URL=${url} --env IH_API_TOKEN=${apiToken} -- node ${mcpPath}${C.reset}\n\n` +
+    `${C.bold}MCP対応のAIツール（Claude・Cursor・Cline等）から操作できます${C.reset}\n` +
+    `  使っているツールのMCP設定ファイルに、次のJSONを貼り付けてください（URL・トークン設定済み）:\n\n` +
+    `  ${C.cyan}${mcpJson}${C.reset}\n\n` +
+    `  ${C.dim}Claude Code なら次の1行でも登録できます:${C.reset}\n` +
+    `  ${C.cyan}claude mcp add invoice-harness --env IH_API_URL=${url} --env IH_API_TOKEN=${apiToken} -- npx -y @invoice-harness/mcp-server${C.reset}\n\n` +
     `  ${C.dim}登録後は「○○社に請求書を作って」等で操作できます。トークンは 設定 ▸ API/AI連携 で失効可。${C.reset}`;
-  ok("MCPトークンを発行しました（上記コマンドで登録）");
+  ok("MCPトークンを発行しました（上記設定で登録）");
 } catch {
   warn("MCPの自動準備をスキップ（後で 設定 ▸ API/AI連携 でトークン発行→README参照）");
 }

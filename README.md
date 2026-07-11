@@ -132,19 +132,21 @@ pnpm --filter @invoice-harness/worker exec wrangler secret put RESEND_API_KEY
 
 ## AI 連携（MCP） (AI Integration)
 
+MCP（Model Context Protocol）はオープン規格で、対応する AI ツールならどれからでもつながります。**Claude Code / Claude Desktop / Cursor / Cline / VS Code (Copilot) / Gemini CLI** など、MCP 対応クライアント全般で利用できます。
+
 1. **設定 ▸ API / AI連携** で API トークンを発行（スコープ: full=全操作 / readonly=参照のみ）
-2. MCP クライアント（Claude 等）に同梱の MCP サーバを登録。環境変数は 2 つ:
+2. 使っている AI ツールの MCP 設定ファイルに、同梱の MCP サーバを登録。環境変数は 2 つ:
    - `IH_API_URL` … 自分の公開 URL（例 `https://your-name.pages.dev`）
    - `IH_API_TOKEN` … 発行したトークン
 
-`.mcp.json` の設定例:
+設定例（多くのツールで共通の JSON。npm 公開済みなので `npx` で取得できます）:
 
 ```json
 {
   "mcpServers": {
     "invoice-harness": {
-      "command": "node",
-      "args": ["packages/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@invoice-harness/mcp-server"],
       "env": {
         "IH_API_URL": "https://your-name.pages.dev",
         "IH_API_TOKEN": "＜設定▸API/連携 で発行したトークン＞"
@@ -154,10 +156,10 @@ pnpm --filter @invoice-harness/worker exec wrangler secret put RESEND_API_KEY
 }
 ```
 
-Claude Code なら次の 1 行でも登録できます（セットアップ完了時に URL・トークン埋め込み済みで表示されます）。
+**Claude Code の場合**は次の 1 行でも登録できます（セットアップ完了時に URL・トークン埋め込み済みで表示されます）。
 
 ```bash
-claude mcp add invoice-harness --env IH_API_URL=https://your-name.pages.dev --env IH_API_TOKEN=... -- node packages/mcp-server/dist/index.js
+claude mcp add invoice-harness --env IH_API_URL=https://your-name.pages.dev --env IH_API_TOKEN=... -- npx -y @invoice-harness/mcp-server
 ```
 
 登録後は自然言語で操作できます。例:

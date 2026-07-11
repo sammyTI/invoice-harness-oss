@@ -107,7 +107,7 @@
 </section>
 
 <h2 class="sub">API / AI連携（MCP）</h2>
-<p class="hint">APIトークンを発行すると、MCPサーバ経由でAI（Claude等）から自然言語で操作したり、外部ソフトから連携できます。トークンは発行時のみ表示されます。</p>
+<p class="hint">APIトークンを発行すると、MCPサーバ経由でAI（Claude・Cursor・Cline など MCP対応ツール）から自然言語で操作したり、外部ソフトから連携できます。トークンは発行時のみ表示されます。</p>
 
 {#if form?.created}
   <div class="flash-ok">
@@ -147,12 +147,12 @@
 
     <div class="card howto">
       <h3>MCPの使い方</h3>
-      <p>Claude Code 等の MCP 設定に、同梱の <code>@invoice-harness/mcp-server</code> を登録します：</p>
+      <p>MCP対応のAIツール（Claude・Cursor・Cline・Gemini CLI・VS Code など）のMCP設定に、同梱の <code>@invoice-harness/mcp-server</code> を登録します：</p>
       <pre>{`{
   "mcpServers": {
     "invoice-harness": {
-      "command": "node",
-      "args": ["packages/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@invoice-harness/mcp-server"],
       "env": {
         "IH_API_URL": "https://your-app.pages.dev",
         "IH_API_TOKEN": "発行したトークン"
