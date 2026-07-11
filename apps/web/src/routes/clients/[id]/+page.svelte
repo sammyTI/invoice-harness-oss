@@ -38,7 +38,7 @@
 
 <div class="sub-head">
   <h2>プロジェクト（{data.projects.length}件）</h2>
-  <a class="btn btn-primary btn-sm" href={`/projects?client=${c.id}`}>＋ プロジェクトを作成</a>
+  <a class="btn btn-primary btn-sm" href={`/projects?client=${c.id}`} title="プロジェクトを作成">＋ 新規作成</a>
 </div>
 {#if data.projects.length === 0}
   <div class="empty">プロジェクトがまだありません。</div>

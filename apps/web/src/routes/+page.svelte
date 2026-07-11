@@ -131,7 +131,7 @@
   </div>
 {/if}
 
-<div class="sub-head"><h2>最近の帳票</h2><a class="btn btn-primary btn-sm" href="/new?type=invoice">＋ 請求書を作成</a></div>
+<div class="sub-head"><h2>最近の帳票</h2><a class="btn btn-primary btn-sm" href="/new?type=invoice" title="請求書を作成">＋ 新規作成</a></div>
 
 {#if data.recent.length === 0}
   <div class="empty">まだ帳票がありません。<a href="/new?type=invoice">請求書を作成</a>してください。</div>

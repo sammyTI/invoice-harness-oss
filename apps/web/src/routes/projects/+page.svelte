@@ -21,7 +21,7 @@
 
 <div class="page-head">
   <h1 class="page-title">プロジェクト</h1>
-  <button class="btn btn-primary" type="button" on:click={openCreate}>＋ プロジェクトを作成</button>
+  <button class="btn btn-primary" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button>
 </div>
 <p class="hint">顧客ごとの案件に、請求書・見積書・支払（発注/支払通知）を紐づけて収支（粗利）を管理します。</p>
 
@@ -40,7 +40,7 @@
 {#if data.projects.length === 0}
   <div class="empty">
     {data.q || data.st ? "条件に一致するプロジェクトがありません。" : "プロジェクトがまだありません。"}
-    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={openCreate}>＋ プロジェクトを作成</button></div>
+    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={openCreate} title="プロジェクトを作成">＋ 新規作成</button></div>
   </div>
 {:else}
   <div class="table-wrap">

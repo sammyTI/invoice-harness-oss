@@ -25,7 +25,7 @@
 
 <div class="page-head">
   <h1 class="page-title">メンバー</h1>
-  <button class="btn btn-primary" type="button" on:click={() => inviteDlg.showModal()}>＋ メンバーを招待</button>
+  <button class="btn btn-primary" type="button" on:click={() => inviteDlg.showModal()} title="メンバーを招待">＋ 新規作成</button>
 </div>
 
 <p class="note">

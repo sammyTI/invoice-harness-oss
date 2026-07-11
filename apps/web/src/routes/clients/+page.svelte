@@ -20,14 +20,14 @@
   <h1 class="page-title">取引先</h1>
   <div class="acts">
     <button class="btn btn-quiet btn-sm" type="button" on:click={() => catDlg.showModal()}>顧客区分マスタ</button>
-    <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()}>＋ 取引先を追加</button>
+    <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button>
   </div>
 </div>
 
 {#if form?.ok}<p class="flash-ok">保存しました。</p>{/if}
 
 {#if data.clients.length === 0}
-  <div class="empty">取引先がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()}>＋ 取引先を追加</button></div></div>
+  <div class="empty">取引先がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="取引先を追加">＋ 新規作成</button></div></div>
 {:else}
   <div class="table-wrap">
     <table class="table">

@@ -9,33 +9,48 @@
     for (const t of data.targets) m[`${t.scope_type}_${t.scope_id}_${t.ym}`] = t.amount;
     return m;
   })();
-  const val = (scope, id, ym) => tmap[`${scope}_${id}_${ym}`] ?? "";
+  // 金額をカンマ区切りに整形（空・0は空文字）
+  const fmt = (n) => (n ? Number(n).toLocaleString("ja-JP") : "");
+  const val = (scope, id, ym) => fmt(tmap[`${scope}_${id}_${ym}`] ?? "");
 
   // 各scopeの年間計（入力中はライブ更新）
   let vals = {};
-  const rowKey = (scope, id) => `${scope}_${id}`;
-  function rowTotal(scope, id) {
+  // v(=vals) を引数で受けることでテンプレートが vals に字句依存し、入力のたび年間計が再計算される
+  function rowTotal(scope, id, v) {
     let sum = 0;
     for (const m of data.months) {
       const k = `t_${scope}_${id}_${m.ym}`;
-      const raw = vals[k];
+      const raw = v[k];
       const n = raw != null ? Number(String(raw).replace(/[^0-9]/g, "")) : (tmap[`${scope}_${id}_${m.ym}`] ?? 0);
       sum += n || 0;
     }
     return sum;
   }
-  // 年間額を12等分して各月に配分するヘルパ
+  // 年額inputから数字を除去→カンマ整形して表示を揃える
+  function fmtInput(e) {
+    e.currentTarget.value = fmt(String(e.currentTarget.value).replace(/[^0-9]/g, ""));
+  }
+  // 月次inputのblur: 数字化→カンマ整形（valsも整形後の値に揃える）
+  function fmtMonth(e, key) {
+    const clean = String(e.currentTarget.value).replace(/[^0-9]/g, "");
+    e.currentTarget.value = fmt(clean);
+    vals = { ...vals, [key]: clean };
+  }
+  // 年間額を12等分して各月に配分するヘルパ（node = .spreadwrap span）
   function spread(scope, id, node) {
-    const raw = node.previousElementSibling.querySelector("input");
+    // 年額inputは .spreadwrap の内側にある
+    const raw = node.querySelector("input");
     const annual = Number(String(raw.value).replace(/[^0-9]/g, "")) || 0;
     if (!annual) return;
     const per = Math.floor(annual / 12);
-    for (const m of data.months) {
+    const r = annual - per * 12; // 余りは初月に加算
+    data.months.forEach((m, i) => {
       const k = `t_${scope}_${id}_${m.ym}`;
-      vals = { ...vals, [k]: String(per) };
+      const amount = i === 0 ? per + r : per;
+      vals = { ...vals, [k]: String(amount) };
       const el = document.querySelector(`input[name="${CSS.escape(k)}"]`);
-      if (el) el.value = String(per);
-    }
+      if (el) el.value = fmt(amount);
+    });
   }
 </script>
 
@@ -82,10 +97,10 @@
                   {row.name}
                   {#if grp.type === "division" && row.issuer_id}<span class="sub">{data.issuers.find((i) => i.id === row.issuer_id)?.name ?? ""}</span>{/if}
                 </th>
-                <td class="r annual num">{formatYen(rowTotal(grp.type, row.id))}</td>
+                <td class="r annual num">{formatYen(rowTotal(grp.type, row.id, vals))}</td>
                 <td class="r tools">
                   <span class="spreadwrap">
-                    <input class="input spin" inputmode="numeric" placeholder="年額" aria-label="年額を12分割" />
+                    <input class="input spin" inputmode="numeric" placeholder="年額" aria-label="年額を12分割" on:blur={fmtInput} />
                     <button type="button" class="btn btn-quiet btn-xs" on:click={(e) => spread(grp.type, row.id, e.currentTarget.parentElement)}>÷12</button>
                   </span>
                 </td>
@@ -97,6 +112,7 @@
                       name={`t_${grp.type}_${row.id}_${m.ym}`}
                       value={val(grp.type, row.id, m.ym)}
                       on:input={(e) => (vals = { ...vals, [`t_${grp.type}_${row.id}_${m.ym}`]: e.currentTarget.value })}
+                      on:blur={(e) => fmtMonth(e, `t_${grp.type}_${row.id}_${m.ym}`)}
                       placeholder="0"
                     />
                   </td>
@@ -129,7 +145,7 @@
   .nm .sub { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
   .annual { min-width: 110px; font-weight: 800; color: var(--primary-d); }
   .mo { min-width: 92px; }
-  .input.min { width: 88px; text-align: right; padding: 6px 8px; font-size: 13px; }
+  .input.min { width: 96px; text-align: right; padding: 6px 8px; font-size: 13px; }
   .spreadwrap { display: inline-flex; gap: 4px; align-items: center; }
   .input.spin { width: 84px; text-align: right; padding: 6px 8px; font-size: 12px; }
   .btn-xs { padding: 5px 8px; font-size: 12px; }

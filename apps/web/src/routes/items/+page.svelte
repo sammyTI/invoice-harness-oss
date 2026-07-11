@@ -17,12 +17,12 @@
 
 <div class="page-head">
   <h1 class="page-title">品目マスタ</h1>
-  <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()}>＋ 品目を追加</button>
+  <button class="btn btn-primary" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button>
 </div>
 <p class="hint">よく使う品目を登録すると、帳票の作成時に品目名から単価・単位・税率を呼び出せます。</p>
 
 {#if data.items.length === 0}
-  <div class="empty">品目がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()}>＋ 品目を追加</button></div></div>
+  <div class="empty">品目がまだありません。<div style="margin-top:12px"><button class="btn btn-primary btn-sm" type="button" on:click={() => addDlg.showModal()} title="品目を追加">＋ 新規作成</button></div></div>
 {:else}
   <div class="table-wrap">
     <table class="table">

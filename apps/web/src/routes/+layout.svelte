@@ -216,7 +216,7 @@
     padding: 16px 12px 5px;
     letter-spacing: 0.14em;
   }
-  main { margin-left: 240px; padding: 26px 34px; max-width: 1180px; min-width: 0; }
+  main { margin-left: 240px; padding: 26px 40px; min-width: 0; }
 
   /* モバイル用トップバー（デフォルト非表示） */
   .topbar { display: none; }
