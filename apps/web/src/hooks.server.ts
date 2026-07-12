@@ -86,11 +86,23 @@ export const handle: Handle = async ({ event, resolve }) => {
     throw redirect(303, "/login?next=" + encodeURIComponent(path));
   }
 
-  // 権限ガード（owner専用領域）。demo は一時的に owner と同等のフル操作を許可
+  // 権限ガード（owner専用領域）。demo は公開デモ向けに管理系（設定・メンバー・
+  // 入出金・オンボーディング）へ入れない。owner のみ通す。
   if (
     event.locals.user &&
     event.locals.user.role !== "owner" &&
-    event.locals.user.role !== "demo" &&
+    OWNER_ONLY.some((p) => path.startsWith(p))
+  ) {
+    throw redirect(303, "/");
+  }
+
+  // demo の残穴封じ: 上の GET 遮断に加え、管理系フォームの書き込み(POST等)を
+  // パス接頭辞で一括拒否する。GET/HEAD 以外は無条件でトップへ戻す。
+  if (
+    event.locals.user &&
+    event.locals.user.role === "demo" &&
+    event.request.method !== "GET" &&
+    event.request.method !== "HEAD" &&
     OWNER_ONLY.some((p) => path.startsWith(p))
   ) {
     throw redirect(303, "/");

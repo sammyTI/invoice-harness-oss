@@ -139,6 +139,8 @@ export const actions: Actions = {
   },
 
   send: async ({ params, platform, url, request, locals }) => {
+    // 公開デモではメール送付を無効化（実在の取引先へ誤送信させない）
+    if (locals.user?.role === "demo") return fail(403, { error: "デモではメール送付は無効です" });
     const db = getDB(platform);
     await assertDocAccess(db, locals.user, params.id);
     const full = await getDocument(db, params.id);

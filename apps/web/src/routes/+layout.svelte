@@ -25,7 +25,9 @@
   $: bare = ["/login", "/setup", "/accept"].includes(path) || (path === "/account/password" && data?.user?.must_change_password);
   const active = (href) => path === href || (href !== "/" && path.startsWith(href));
   $: settingsActive = path === "/settings" || settingsPaths.some((p) => path.startsWith(p));
-  $: isAdmin = data?.user?.role === "owner" || data?.user?.role === "demo";
+  // 管理系リンク（計上区分・入出金・メンバー・設定一覧）は owner のみ。
+  // demo は公開デモ向けにこれら管理系へ入れないため、リンク自体も隠す。
+  $: isAdmin = data?.user?.role === "owner";
 
   let navOpen = false;
   // ページ遷移したらドロワーを閉じる
