@@ -1,5 +1,6 @@
-import type { Actions } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
+import type { Member } from "$lib/server/db";
 import { getDB, getMemberByEmail } from "$lib/server/db";
 import {
   clearLoginFailures,
@@ -13,6 +14,11 @@ import {
 
 // 認証失敗時は必ず同一文言を返す（ユーザー存在の探りを防ぐ）
 const AUTH_FAIL = "メールアドレスまたはパスワードが違います";
+
+// DEMO_LOGIN が設定されたインスタンスだけボタンを表示する。
+export const load: PageServerLoad = ({ platform }) => {
+  return { demoLogin: !!platform?.env?.DEMO_LOGIN };
+};
 
 export const actions: Actions = {
   default: async ({ request, platform, cookies, url, getClientAddress }) => {
@@ -52,5 +58,28 @@ export const actions: Actions = {
     // "//evil.example"（プロトコル相対URL）や "\evil.example" を弾く。
     const safeNext = next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
     throw redirect(303, safeNext);
+  },
+
+  // デモ環境限定のワンクリックログイン。パスワード照合が無いため総当たり対象ではなくレート制限は不要。
+  demo: async ({ platform, cookies }) => {
+    // DEMO_LOGIN が無いインスタンスでは絶対に発行しない
+    if (!platform?.env?.DEMO_LOGIN) {
+      return fail(403, { error: "デモログインは無効です" });
+    }
+    const db = getDB(platform);
+    // role='demo' AND status='active' の最初のメンバー（ログイン可能な行を優先）
+    const m = await db
+      .prepare(
+        "SELECT * FROM members WHERE role='demo' AND status='active' ORDER BY (CASE WHEN password_hash IS NOT NULL THEN 0 ELSE 1 END), created_at LIMIT 1"
+      )
+      .first<Member>();
+    if (!m) {
+      return fail(500, { error: "デモアカウントが設定されていません" });
+    }
+
+    const token = await createSession(db, m.id);
+    // default action と同じ cookie 流儀（secure/httpOnly/sameSite/maxAge を一致させる）
+    cookies.set(SESSION_COOKIE, token, { path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
+    throw redirect(303, "/");
   },
 };

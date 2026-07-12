@@ -15,6 +15,8 @@ declare global {
         FILES?: R2Bucket;
         RESEND_API_KEY?: string;
         MAIL_FROM?: string;
+        /** 公開デモ環境でのみ設定。存在するとログイン画面に「デモアカウントで見る」ボタンを表示する。 */
+        DEMO_LOGIN?: string;
       };
     }
   }
