@@ -11,3 +11,6 @@ build/
 !.dev.vars.example
 *.log
 .DS_Store
+# デモリセット用スナップショット（パスワードハッシュ等を含むためコミット禁止）
+tools/demo-reset/snapshot.sql
+tools/demo-reset/snapshot.mjs

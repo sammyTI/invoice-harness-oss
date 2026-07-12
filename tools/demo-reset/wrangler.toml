@@ -1,0 +1,21 @@
+# 公開デモを毎日ゴールデンスナップショットへ戻す Cron Worker。
+# 配布物ではなく、公開デモ環境の運用専用ツール。
+#
+# database_id は 00000000-... のプレースホルダ。
+# デプロイ時にデモDBの実IDへ差し替えること
+# （`wrangler d1 list` で確認、または `wrangler d1 info invoice_harness`）。
+
+name = "invoice-harness-demo-reset"
+main = "index.mjs"
+compatibility_date = "2026-07-01"
+
+# UTC 19:00 = JST 翌朝 4:00 に毎日実行。
+[triggers]
+crons = ["0 19 * * *"]
+
+# デモDBの D1 バインディング。
+# database_id はデプロイ時にデモDBの実IDへ差し替える（上記コメント参照）。
+[[d1_databases]]
+binding = "DB"
+database_name = "invoice_harness"
+database_id = "00000000-0000-0000-0000-000000000000"
