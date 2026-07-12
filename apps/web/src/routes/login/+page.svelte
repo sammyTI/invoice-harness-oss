@@ -9,7 +9,7 @@
   <div class="brand"><span class="mark">IH</span> Invoice Harness</div>
   <h1>ログイン</h1>
   {#if form?.error}<p class="flash-err">{form.error}</p>{/if}
-  <form method="POST">
+  <form method="POST" action="?/login">
     <input type="hidden" name="next" value={next} />
     <div class="field"><span class="lab">メールアドレス</span><input class="input" type="email" name="email" required /></div>
     <div class="field"><span class="lab">パスワード</span><input class="input" type="password" name="password" required /></div>

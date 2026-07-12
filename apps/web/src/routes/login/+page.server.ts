@@ -21,7 +21,7 @@ export const load: PageServerLoad = ({ platform }) => {
 };
 
 export const actions: Actions = {
-  default: async ({ request, platform, cookies, url, getClientAddress }) => {
+  login: async ({ request, platform, cookies, url, getClientAddress }) => {
     const db = getDB(platform);
     const fd = await request.formData();
     // email は小文字trim正規化してから照合・記録・クリアに使う（大小文字使い分けによる制限回避を封じる）
